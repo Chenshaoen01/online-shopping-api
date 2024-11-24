@@ -160,10 +160,12 @@ router.post('/logout', (req, res) => {
 });
 
 
-// 範例：通過 ID 獲取用戶資料
+// 通過 ID 獲取用戶資料
 router.get('/getUser/:id', async function(req, res) {
   const [userData] = await getQueryById(req.params.id);
   res.send(userData);
 });
+
+
 
 module.exports = router;

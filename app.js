@@ -8,6 +8,7 @@ const logger = require('morgan');
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const productRouter = require('./routes/product');
+const productCategoryRouter = require('./routes/productCategory');
 const cartRouter = require('./routes/cart');
 const orderRouter = require('./routes/order');
 const questionRouter = require('./routes/question');
@@ -25,13 +26,15 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
-  origin: 'http://localhost:3010',
-  credentials: true // 允許攜帶 Cookie
+  origin: ['http://localhost:3010', 'http://localhost:3020'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/product', productRouter);
+app.use('/productCategory', productCategoryRouter);
 app.use('/cart', cartRouter);
 app.use('/order', orderRouter);
 app.use('/question', questionRouter);

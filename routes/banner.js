@@ -1,5 +1,5 @@
 const express = require('express');
-const multer = require('multer')
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
@@ -16,17 +16,38 @@ const pool = mysql.createPool({
 
 // Banner查詢（每頁10筆，依頁數顯示）
 router.get('/', async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = 10;
-  const offset = (page - 1) * limit;
+  const page = parseInt(req.query.page) || 1; // 取得當前頁數，預設為第1頁
+  const limit = 10; // 每頁顯示的筆數
+  const offset = (page - 1) * limit; // 計算資料的起始位置
 
   try {
+    // 查詢總 Banner 數量
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM banner;`);
+    const lastPage = Math.ceil(total / limit); // 計算總頁數
+
+    // 計算 pageList 的範圍
+    let startPage = Math.max(1, page - 2); // 頁碼範圍的起始值
+    let endPage = Math.min(lastPage, page + 2); // 頁碼範圍的結束值
+
+    // 調整 pageList 確保最多顯示5個頁碼
+    if (endPage - startPage < 4) {
+      if (startPage === 1) {
+        endPage = Math.min(lastPage, startPage + 4); // 從第1頁開始時向後擴展
+      } else if (endPage === lastPage) {
+        startPage = Math.max(1, endPage - 4); // 從最後一頁開始時向前擴展
+      }
+    }
+
+    const pageList = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
+    // 查詢 Banner 資料
     const [banners] = await pool.query(
-      `SELECT * FROM banner LIMIT ? OFFSET ?`,
+      `SELECT * FROM banner ORDER BY banner_sort ASC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
 
-    res.json({ data: banners });
+    // 回傳所需資料
+    res.json({ dataList: banners, lastPage, pageList });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -35,8 +56,8 @@ router.get('/', async (req, res) => {
 // Banner查詢（取得全部 Banner）
 router.get('/getAll', async (req, res) => {
   try {
-    const [banners] = await pool.query(`SELECT * FROM banner`);
-    res.json({ data: banners });
+    const [banners] = await pool.query(`SELECT * FROM banner ORDER BY banner_sort ASC;`);
+    res.json(banners);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -62,67 +83,75 @@ router.get('/:banner_id', async (req, res) => {
   }
 });
 
-let fileName = ""
+let fileName = "";
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "public/images/banner");
   },
   filename: function (req, file, cb) {
-    const fileExtensionPatter = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/;
-    const extension = file.originalname.match(fileExtensionPatter)[0];
-    fileName = file.fieldname + "-" + Date.now() + extension
+    const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/;
+    const extension = file.originalname.match(fileExtensionPattern)[0];
+    fileName = file.fieldname + "-" + Date.now() + extension;
     cb(null, fileName);
   },
 });
 
-const upload = multer({storage: storage})
+const upload = multer({ storage: storage });
+
+// BannerImg 新增
+router.post('/bannerImg', upload.single('bannerImg'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    res.status(201).json({ message: 'Banner image added successfully', fileName });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Banner 新增
-router.post('/', upload.single('banner'), async (req, res) => {
+router.post('/', async (req, res) => {
   const banner_id = uuidv4();
-  const banner_img = fileName;
+  const { new_banner_img, banner_link, banner_sort } = req.body;
+
   try {
     await pool.query(
-      `INSERT INTO banner (banner_id, banner_img)
-       VALUES (?, ?)`,
-      [banner_id, banner_img]
+      `INSERT INTO banner (banner_id, banner_img, banner_link, banner_sort)
+      VALUES (?, ?, ?, ?);`,
+      [banner_id, new_banner_img, banner_link, banner_sort]
     );
 
-    res.status(201).json({ message: 'Banner added successfully', banner_img });
+    res.status(201).json({ message: 'Banner added successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Banner 修改
-router.put('/:banner_id', upload.single('banner'), async (req, res) => {
+router.put('/:banner_id', async (req, res) => {
   const { banner_id } = req.params;
-  const banner_img = fileName;
+  const { banner_img, new_banner_img, banner_link, banner_sort } = req.body;
 
   try {
-    // 獲取原本的 banner_img
-    const [rows] = await pool.query(
-      `SELECT banner_img FROM banner WHERE banner_id = ?`,
-      [banner_id]
-    );
+    const isNewImageExist = new_banner_img !== null && new_banner_img !== "" && new_banner_img !== undefined;
+    const updateImg = isNewImageExist ? new_banner_img : banner_img;
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Banner not found' });
-    }
-
-    const oldBannerImg = rows[0].banner_img;
-    const oldBannerImgPath = path.join(__dirname, '..', 'public', 'images', 'banner', oldBannerImg);
-    // 刪除原先的照片
-    if (fs.existsSync(oldBannerImgPath)) {
-      fs.unlinkSync(oldBannerImgPath);
+    // 如果有新圖片，先刪除原先的照片
+    if (isNewImageExist) {
+      const oldBannerImgPath = path.join(__dirname, '..', 'public', 'images', 'banner', banner_img);
+      if (fs.existsSync(oldBannerImgPath)) {
+        fs.unlinkSync(oldBannerImgPath);
+      }
     }
 
     // 更新新的 banner_img
     const [result] = await pool.query(
-      `UPDATE banner 
-       SET banner_img = ?
-       WHERE banner_id = ?`,
-      [banner_img, banner_id]
+      `UPDATE banner
+      SET banner_img = ?, banner_link = ?, banner_sort = ?
+      WHERE banner_id = ?;`,
+      [updateImg, banner_link, banner_sort, banner_id]
     );
 
     if (result.affectedRows === 0) {
@@ -135,21 +164,40 @@ router.put('/:banner_id', upload.single('banner'), async (req, res) => {
   }
 });
 
-// Banner 刪除
-router.delete('/:banner_id', async (req, res) => {
-  const { banner_id } = req.params;
+// Banner 刪除（支援一次刪除多筆）
+router.delete('/', async (req, res) => {
+  const { banner_ids } = req.body;
+
+  if (!Array.isArray(banner_ids) || banner_ids.length === 0) {
+    return res.status(400).json({ error: 'Please provide an array of banner IDs' });
+  }
 
   try {
-    const [result] = await pool.query(
-      `DELETE FROM banner WHERE banner_id = ?`,
-      [banner_id]
+    // 查詢要刪除的 Banner 資料以取得圖片名稱
+    const [rows] = await pool.query(
+      `SELECT banner_img FROM banner WHERE banner_id IN (?)`,
+      [banner_ids]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Banner not found' });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No banners found to delete' });
     }
 
-    res.json({ message: 'Banner deleted successfully' });
+    // 刪除相關圖片
+    rows.forEach((row) => {
+      const bannerImgPath = path.join(__dirname, '..', 'public', 'images', 'banner', row.banner_img);
+      if (fs.existsSync(bannerImgPath)) {
+        fs.unlinkSync(bannerImgPath);
+      }
+    });
+
+    // 刪除資料庫中的 Banner
+    const [result] = await pool.query(
+      `DELETE FROM banner WHERE banner_id IN (?)`,
+      [banner_ids]
+    );
+
+    res.json({ message: 'Banners deleted successfully', deletedCount: result.affectedRows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

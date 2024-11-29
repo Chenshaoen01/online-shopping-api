@@ -42,6 +42,7 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 取得指定類別的產品
 router.get('/getCategoryProduct', async (req, res) => {
   const category_id = req.query.category_id || null; // 如果沒提供 category_id，設為 null
   const page = parseInt(req.query.page) || 1; // 頁數，默認為 1
@@ -51,8 +52,8 @@ router.get('/getCategoryProduct', async (req, res) => {
   try {
     // 計算符合條件的產品總數
     const countQuery = category_id
-      ? `SELECT COUNT(*) AS total FROM product WHERE category_id = ?`
-      : `SELECT COUNT(*) AS total FROM product`;
+      ? `SELECT COUNT(*) AS total FROM product WHERE category_id = ? AND is_active = 1`
+      : `SELECT COUNT(*) AS total FROM product WHERE is_active = 1`;
     const countParams = category_id ? [category_id] : [];
     const [[{ total }]] = await pool.query(countQuery, countParams);
 
@@ -82,12 +83,13 @@ router.get('/getCategoryProduct', async (req, res) => {
       ? `SELECT p.*, c.category_name 
          FROM product p
          LEFT JOIN product_category c ON p.category_id = c.category_id
-         WHERE p.category_id = ?
+         WHERE p.category_id = ? AND p.is_active = 1
          ORDER BY p.product_id
          LIMIT ? OFFSET ?`
       : `SELECT p.*, c.category_name 
          FROM product p
          LEFT JOIN product_category c ON p.category_id = c.category_id
+         WHERE p.is_active = 1
          ORDER BY p.product_id
          LIMIT ? OFFSET ?`;
     const productParams = category_id ? [category_id, limit, offset] : [limit, offset];

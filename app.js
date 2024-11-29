@@ -7,6 +7,7 @@ const logger = require('morgan');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const paramRouter = require('./routes/parameters');
 const productRouter = require('./routes/product');
 const productCategoryRouter = require('./routes/productCategory');
 const cartRouter = require('./routes/cart');
@@ -33,6 +34,7 @@ app.use(cors({
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/param', paramRouter);
 app.use('/product', productRouter);
 app.use('/productCategory', productCategoryRouter);
 app.use('/cart', cartRouter);

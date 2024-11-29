@@ -104,7 +104,7 @@ router.get('/getRecommendedProducts', async (req, res) => {
       FROM product p
       LEFT JOIN product_category c ON p.category_id = c.category_id
       LEFT JOIN product_img img ON p.product_id = img.product_id
-      WHERE p.is_recommended = 1
+      WHERE p.is_recommended = 1 AND p.is_active = 1
       GROUP BY p.product_id
       ORDER BY p.product_id
       LIMIT 6
@@ -215,7 +215,7 @@ router.get('/related/:product_id', async (req, res) => {
       `SELECT p.*, c.category_name 
        FROM product p
        LEFT JOIN product_category c ON p.category_id = c.category_id
-       WHERE p.category_id = ? AND p.product_id != ?
+       WHERE p.category_id = ? AND p.product_id != ? AND p.is_active = 1
        ORDER BY p.product_id
        LIMIT 6`,
       [category_id, product_id]

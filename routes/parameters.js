@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -65,7 +66,7 @@ router.get('/:param_id', async (req, res) => {
 });
 
 // 新增參數
-router.post('/', async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { param_id, param_content } = req.body;
 
   if (!param_id) {
@@ -89,7 +90,7 @@ router.post('/', async (req, res) => {
 });
 
 // 修改參數
-router.put('/:param_id', async (req, res) => {
+router.put('/:param_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { param_id } = req.params;
   const { param_content } = req.body;
 
@@ -112,7 +113,7 @@ router.put('/:param_id', async (req, res) => {
 });
 
 // 刪除參數
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { param_ids } = req.body;
 
   if (!Array.isArray(param_ids) || param_ids.length === 0) {

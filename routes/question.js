@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
+const {verifyJWT, verifyAdmin} = require('@middlewares/auth')
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -90,7 +91,7 @@ router.get('/:question_id', async (req, res) => {
 });
 
 // 問題新增
-router.post('/', async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { question_title, question_description, question_sort } = req.body;
   const question_id = uuidv4();
 
@@ -108,7 +109,7 @@ router.post('/', async (req, res) => {
 });
 
 // 問題修改
-router.put('/:question_id', async (req, res) => {
+router.put('/:question_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { question_id } = req.params;
   const { question_title, question_description, question_sort } = req.body;
 
@@ -131,7 +132,7 @@ router.put('/:question_id', async (req, res) => {
 });
 
 // 問題刪除
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { question_ids } = req.body;
 
   if (!Array.isArray(question_ids) || question_ids.length === 0) {

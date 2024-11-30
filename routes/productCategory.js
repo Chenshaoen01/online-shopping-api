@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
+const { verifyJWT, verifyAdmin } = require("@middlewares/auth")
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -182,7 +183,7 @@ router.get('/:category_id', async (req, res) => {
 });
 
 // 新增 category
-router.post('/', async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { category_id, category_name } = req.body;
 
   if (!category_id || !category_name) {
@@ -211,7 +212,7 @@ router.post('/', async (req, res) => {
 });
 
 // 修改 category_name
-router.put('/:category_id', async (req, res) => {
+router.put('/:category_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { category_id } = req.params;
   const { category_name } = req.body;
 
@@ -236,7 +237,7 @@ router.put('/:category_id', async (req, res) => {
 });
 
 // 刪除 categories
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     const { category_ids } = req.body;
   
     if (!Array.isArray(category_ids) || category_ids.length === 0) {

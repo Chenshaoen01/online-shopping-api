@@ -5,6 +5,7 @@ const fs = require('fs');
 const router = express.Router();
 const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -99,7 +100,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // BannerImg 新增
-router.post('/bannerImg', upload.single('bannerImg'), (req, res) => {
+router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -112,7 +113,7 @@ router.post('/bannerImg', upload.single('bannerImg'), (req, res) => {
 });
 
 // Banner 新增
-router.post('/', async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const banner_id = uuidv4();
   const { new_banner_img, banner_link, banner_sort } = req.body;
 
@@ -130,7 +131,7 @@ router.post('/', async (req, res) => {
 });
 
 // Banner 修改
-router.put('/:banner_id', async (req, res) => {
+router.put('/:banner_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { banner_id } = req.params;
   const { banner_img, new_banner_img, banner_link, banner_sort } = req.body;
 
@@ -165,7 +166,7 @@ router.put('/:banner_id', async (req, res) => {
 });
 
 // Banner 刪除（支援一次刪除多筆）
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { banner_ids } = req.body;
 
   if (!Array.isArray(banner_ids) || banner_ids.length === 0) {

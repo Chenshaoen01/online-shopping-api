@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -292,7 +293,7 @@ const productStorage = multer.diskStorage({
 
 const productUpload = multer({ storage: productStorage });
 
-router.post('/productImg', productUpload.single('productImg'), async (req, res) => {
+router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
   try {
     res.status(201).json({ message: 'Product image added successfully', productFileName });
   } catch (err) {
@@ -301,7 +302,7 @@ router.post('/productImg', productUpload.single('productImg'), async (req, res) 
 });
 
 // 產品新增 API
-router.post('/', async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { product_name, product_info, is_active, is_recommended, category_id, models, images } = req.body;
   const product_id = uuidv4();
   const connection = await pool.getConnection();
@@ -346,7 +347,7 @@ router.post('/', async (req, res) => {
 });
 
 // 產品修改 API
-router.put('/:product_id', async (req, res) => {
+router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { product_id } = req.params;
   const { product_name, product_info, is_active, is_recommended, category_id, models, images } = req.body;
 
@@ -405,7 +406,7 @@ router.put('/:product_id', async (req, res) => {
 });
 
 // 調整產品是否上架
-router.post('/update-active-status', async (req, res) => {
+router.post('/update-active-status', verifyJWT, verifyAdmin, async (req, res) => {
   const { isActive, product_ids } = req.body;
 
   // 驗證參數
@@ -444,7 +445,7 @@ router.post('/update-active-status', async (req, res) => {
 });
 
 // 刪除產品
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { product_ids } = req.body;
 
   if (!Array.isArray(product_ids) || product_ids.length === 0) {

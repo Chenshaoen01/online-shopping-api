@@ -64,7 +64,7 @@ router.post('/register', async (req, res) => {
   const { user_name, user_email, user_tel, user_password } = req.body;
 
   if (!user_name || !user_email || !user_tel || !user_password) {
-    return res.status(400).send({ message: "所有欄位都是必填的。" });
+    return res.status(400).send({ message: "註冊資料未完整填寫" });
   }
 
   // 生成 UUID
@@ -75,8 +75,7 @@ router.post('/register', async (req, res) => {
 
   try {
     await pool.query(
-      "INSERT INTO user (user_id, user_name, user_email, user_tel, user_password) VALUES (?, ?, ?, ?, ?)",
-      [user_id, user_name, user_email, user_tel, hashedPassword]
+      "INSERT INTO user (user_id, user_name, user_email, user_tel, user_password, user_authority) VALUES (?, ?, ?, ?, ?, ?)",[user_id, user_name, user_email, user_tel, hashedPassword, "customer"]
     );
     res.status(201).send({ message: "用戶註冊成功。" });
   } catch (err) {
@@ -112,28 +111,32 @@ router.post('/login', async (req, res) => {
     }
 
     // 生成 JWT token
-    const token = jwt.sign({ user_id: user.user_id }, JWT_SECRET, { expiresIn: '1h' });
+    const JWTPayload = { 
+      user_id: user.user_id,
+      user_authority: user.user_authority 
+    }
+    const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
 
     // 生成 CSRF token
     const csrfToken = uuidv4();
 
     // 將 JWT 存入 HttpOnly Cookie
     res.cookie('jwt', token, {
-      httpOnly: true, // HttpOnly，前端無法讀取此 Cookie
-      secure: process.env.NODE_ENV === 'production', // 僅在 HTTPS 中傳遞
-      maxAge: 60 * 60 * 1000 // 1 小時
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: 60 * 60 * 1000 
     });
 
-    // 將 CSRF token 透過 Set-Cookie 或回應體傳送給前端
+    // 將 CSRF token 傳送給前端
     res.cookie('csrfToken', csrfToken, {
-      httpOnly: false, // 非 HttpOnly，前端可以讀取
+      httpOnly: false, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 // 1 小時
+      maxAge: 60 * 60 * 1000
     });
 
     res.status(200).send({
       message: "登入成功",
-      csrfToken // 回應體中包含 CSRF token
+      csrfToken
     });
   } catch (err) {
     res.status(500).send({ message: "數據庫錯誤。", error: err });
@@ -146,14 +149,14 @@ router.post('/logout', (req, res) => {
   res.cookie('jwt', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 0 // 删除 cookie
+      maxAge: 0
   });
 
   // 清除 CSRF token
   res.cookie('csrfToken', '', {
-      httpOnly: false, // 可通过 JavaScript 清除
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 0 // 删除 cookie
+      maxAge: 0
   });
 
   res.status(200).send({ message: "登出成功" });
@@ -161,11 +164,27 @@ router.post('/logout', (req, res) => {
 
 
 // 通過 ID 獲取用戶資料
-router.get('/getUser/:id', async function(req, res) {
-  const [userData] = await getQueryById(req.params.id);
-  res.send(userData);
+router.get('/getUserInfo', async function(req, res) {
+  // 從 Cookie 中取得 JWT token
+  const token = req.cookies.jwt;
+
+  if (!token) {
+    return res.status(401).json({ message: "未登入。" });
+  }
+
+  try {
+    // 驗證並解碼 JWT token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user_id = decoded.user_id;
+
+    const [userData] = await getQueryById(user_id);
+    res.send(userData);
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "JWT token 無效或已過期。" });
+    }
+    res.status(500).json({ error: err.message });
+  }
 });
-
-
 
 module.exports = router;

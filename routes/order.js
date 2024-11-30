@@ -3,6 +3,7 @@ const router = express.Router();
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -14,10 +15,10 @@ const pool = mysql.createPool({
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-router.post('/', async (req, res) => {
+// 建立訂單
+router.post('/', verifyJWT, async (req, res) => {
   const { cart_id } = req.body;
   const order_id = uuidv4();
-  console.log(cart_id)
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -97,7 +98,7 @@ router.post('/', async (req, res) => {
 });
 
 // 依照頁數查詢訂單列表
-router.get('/', async (req, res) => {
+router.get('/',verifyJWT, verifyAdmin, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
@@ -161,8 +162,8 @@ router.get('/', async (req, res) => {
 
 
 
-// 查詢客戶的所有訂單
-router.get('/userOrders', async (req, res) => {
+// 客戶查詢自己的所有訂單
+router.get('/userOrders', verifyJWT, async (req, res) => {
   // 從 Cookie 中取得 JWT token
   const token = req.cookies.jwt;
 
@@ -214,10 +215,8 @@ router.get('/userOrders', async (req, res) => {
   }
 });
 
-
-
 // 查詢單一訂單
-router.get('/:order_id', async (req, res) => {
+router.get('/:order_id', verifyJWT, async (req, res) => {
   const { order_id } = req.params;
   try {
     // 查詢 order 資料
@@ -248,7 +247,7 @@ router.get('/:order_id', async (req, res) => {
 });
 
 // 批量更新訂單狀態
-router.put('/orderStatus', async (req, res) => {
+router.put('/orderStatus', verifyJWT, verifyAdmin, async (req, res) => {
   const { order_ids, order_status } = req.body;
 
   // 驗證輸入
@@ -274,7 +273,7 @@ router.put('/orderStatus', async (req, res) => {
 });
 
 // 刪除訂單及相關商品明細
-router.delete('/', async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { order_ids } = req.body;
 
   // 驗證輸入

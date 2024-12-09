@@ -3,7 +3,7 @@ const router = express.Router();
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -181,32 +181,8 @@ router.get('/userOrders', verifyJWT, async (req, res) => {
       `SELECT * FROM \`order\` WHERE user_id = ?`,
       [user_id]
     );
-
-    if (orders.length === 0) {
-      return res.status(404).json({ error: 'No orders found for this user.' });
-    }
-
-    // 為每個訂單查詢對應的 order_items
-    const ordersWithItems = [];
-    for (const order of orders) {
-      const [orderItems] = await pool.query(
-        `SELECT oi.order_item_id, oi.quantity, oi.model_price, 
-                p.product_name, m.model_name
-         FROM order_item oi
-         JOIN product p ON oi.product_name = p.product_id
-         JOIN model m ON oi.model_name = m.model_id
-         WHERE oi.order_id = ?`,
-        [order.order_id]
-      );
-
-      ordersWithItems.push({
-        order,
-        items: orderItems
-      });
-    }
-
-    // 返回所有訂單及其商品明細
-    res.json(ordersWithItems);
+    // 返回所有訂單
+    res.json(orders);
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ message: "JWT token 無效或已過期。" });

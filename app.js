@@ -17,7 +17,7 @@ const questionRouter = require('./routes/question');
 const bannerRouter = require('./routes/banner');
 
 const app = express();
-
+require('dotenv').config();
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
-  origin: ['http://localhost:3010', 'http://localhost:3020'],
+  origin: [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));

@@ -45,10 +45,10 @@ router.get('/', async (req, res) => {
 
 // 取得指定類別的產品
 router.get('/getCategoryProduct', async (req, res) => {
-  const category_id = req.query.category_id || null; // 如果沒提供 category_id，設為 null
-  const page = parseInt(req.query.page) || 1; // 頁數，默認為 1
-  const limit = 10; // 每頁顯示 10 筆資料
-  const offset = (page - 1) * limit; // 計算偏移量
+  const category_id = req.query.category_id || null;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
   
   try {
     // 計算符合條件的產品總數
@@ -62,10 +62,9 @@ router.get('/getCategoryProduct', async (req, res) => {
       return res.json({ dataList: [], lastPage: 0, pageList: [] });
     }
 
-    // 計算總頁數
+    // 計算頁數
     const lastPage = Math.ceil(total / limit);
 
-    // 動態生成分頁範圍
     let startPage = Math.max(1, page - 2);
     let endPage = Math.min(lastPage, page + 2);
 
@@ -121,9 +120,6 @@ router.get('/getCategoryProduct', async (req, res) => {
       const productModels = models.filter(model => model.product_id === product.product_id);
       const productImage = images.find(image => image.product_id === product.product_id);
 
-      // 計算 product_quantity
-      const productQuantity = productModels.reduce((sum, model) => sum + parseFloat(model.model_quantity || 0), 0);
-
       // 計算 product_price
       const modelPrices = productModels.map(model => model.model_price).filter(price => price !== null);
       let productPrice = null;
@@ -139,15 +135,18 @@ router.get('/getCategoryProduct', async (req, res) => {
         ...product,
         is_active: product.is_active === 1 ? "是" : "否",
         product_img: productImage?.product_img,
-        product_quantity: productQuantity,
         product_price: productPrice
       };
     });
 
+    const categoryData = {
+      category_id: category_id,
+      category_name: (Array.isArray(productWithDetails) && productWithDetails.length > 0) ? productWithDetails[0].category_name : ""
+    }
+
     // 回傳結果
-    res.json({ dataList: productWithDetails, lastPage, pageList });
+    res.json({categoryData, dataList: productWithDetails, lastPage, pageList });
   } catch (err) {
-    console.log(err.message)
     res.status(500).json({ error: err.message });
   }
 });

@@ -1,11 +1,11 @@
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET; // 確保環境變數中包含密鑰
 
 // 檢查 JWT token 是否有效
 const verifyJWT = (req, res, next) => {
   const token = req.cookies.jwt; // 從 Cookie 中取得 JWT
-
   if (!token) {
     return res.status(401).send({ message: "未提供身份驗證 token。" });
   }
@@ -28,7 +28,25 @@ const verifyAdmin = (req, res, next) => {
   }
 };
 
+// 檢驗csrfToken是否有效
+const verifyCsrfToken = (token) => {
+  const csrfSecret = process.env.CSRF_SECRET; // 從環境變數獲取密鑰
+  const [csrfToken, signature] = token.split('.'); // 拆分 token 和簽名
+
+  if (!csrfToken || !signature) {
+    return false; // 格式錯誤
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', csrfSecret)
+    .update(csrfToken)
+    .digest('hex'); // 計算期望的簽名
+
+  return expectedSignature === signature; // 簽名是否匹配
+};
+
 module.exports = {
     verifyJWT,
-    verifyAdmin
+    verifyAdmin,
+    verifyCsrfToken
 }

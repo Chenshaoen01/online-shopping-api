@@ -66,9 +66,6 @@ router.get('/', async (req, res) => {
       const productModels = models.filter(model => model.product_id === product.product_id);
       const productImages = images.filter(image => image.product_id === product.product_id);
 
-      // 計算 product_quantity
-      const productQuantity = productModels.reduce((sum, model) => sum + parseFloat(model.model_quantity || 0), 0);
-
       // 計算 product_price
       const modelPrices = productModels.map(model => model.model_price).filter(price => price !== null);
       let productPrice = null;
@@ -85,7 +82,6 @@ router.get('/', async (req, res) => {
         is_active: product.is_active === 1 ? "是" : "否",
         models: productModels,
         images: productImages,
-        product_quantity: productQuantity,
         product_price: productPrice
       };
     });
@@ -129,9 +125,6 @@ router.get('/getRecommendedProducts', async (req, res) => {
     const recommendedProducts = products.map(product => {
       const productModels = models.filter(model => model.product_id === product.product_id);
 
-      // 計算 product_quantity
-      const productQuantity = productModels.reduce((sum, model) => sum + parseFloat(model.model_quantity || 0), 0);
-
       // 計算 product_price
       const modelPrices = productModels.map(model => model.model_price).filter(price => price !== null);
       let productPrice = null;
@@ -147,11 +140,9 @@ router.get('/getRecommendedProducts', async (req, res) => {
         ...product,
         is_active: product.is_active === 1 ? "是" : "否",
         product_img: product.product_img,
-        product_quantity: productQuantity,
         product_price: productPrice
       };
     });
-    console.log(recommendedProducts)
     // 回傳結果
     res.json(recommendedProducts);
   } catch (err) {
@@ -184,8 +175,20 @@ router.get('/:product_id', async (req, res) => {
       [product_id]
     );
 
+    // 計算 product_price
+    const modelPrices = models.map(model => model.model_price).filter(price => price !== null);
+    let productPrice = null;
+    if (modelPrices.length === 1) {
+      productPrice = modelPrices[0];
+    } else if (modelPrices.length > 1) {
+      const minPrice = Math.min(...modelPrices);
+      const maxPrice = Math.max(...modelPrices);
+      productPrice = minPrice === maxPrice ? minPrice : `${minPrice} - ${maxPrice}`;
+    }
+
     res.json({
       ...product[0],
+      product_price: productPrice,
       models: models,
       images: images
     });
@@ -247,9 +250,6 @@ router.get('/related/:product_id', async (req, res) => {
       const productModels = models.filter(model => model.product_id === product.product_id);
       const productImage = images.find(image => image.product_id === product.product_id);
 
-      // 計算 product_quantity
-      const productQuantity = productModels.reduce((sum, model) => sum + parseFloat(model.model_quantity || 0), 0);
-
       // 計算 product_price
       const modelPrices = productModels.map(model => model.model_price).filter(price => price !== null);
       let productPrice = null;
@@ -265,7 +265,6 @@ router.get('/related/:product_id', async (req, res) => {
         ...product,
         is_active: product.is_active === 1 ? "是" : "否",
         product_img: productImage?.product_img,
-        product_quantity: productQuantity,
         product_price: productPrice
       };
     });
@@ -278,24 +277,42 @@ router.get('/related/:product_id', async (req, res) => {
 });
 
 // 產品圖片上傳
-let productFileName = "";
 const productStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "public/images/product");
+    try {
+      cb(null, "public/images/product"); // 設定檔案存放的目錄
+    } catch (err) {
+      console.error("Error in setting destination:", err.message);
+      cb(err); // 傳遞錯誤給 multer，停止操作
+    }
   },
   filename: function (req, file, cb) {
-    const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/;
-    const extension = file.originalname.match(fileExtensionPattern)[0];
-    productFileName = file.fieldname + "-" + Date.now() + extension;
-    cb(null, productFileName);
+    try {
+      const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/i;
+      const extensionMatch = file.originalname.match(fileExtensionPattern);
+
+      if (!extensionMatch) {
+        throw new Error("Invalid file extension");
+      }
+
+      const extension = extensionMatch[0];
+      const uniqueFileName = file.fieldname + "-" + Date.now() + extension;
+      req.uploadedFileName = uniqueFileName; // 將檔案名稱存入 req，便於後續處理
+      cb(null, uniqueFileName);
+    } catch (err) {
+      console.error("Error in setting filename:", err.message);
+      cb(err); // 傳遞錯誤給 multer，停止操作
+    }
   },
 });
+
 
 const productUpload = multer({ storage: productStorage });
 
 router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
   try {
-    res.status(201).json({ message: 'Product image added successfully', productFileName });
+    const uploadedFileName = req.uploadedFileName;
+    res.status(201).json({ message: 'Product image added successfully', productFileName: uploadedFileName });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -319,9 +336,9 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
     for (const model of models) {
       const model_id = model.model_id || uuidv4();
       await connection.query(
-        `INSERT INTO model (model_id, model_name, model_price, model_quantity, product_id) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [model_id, model.model_name, model.model_price, model.model_quantity, product_id]
+        `INSERT INTO model (model_id, model_name, model_price, product_id) 
+         VALUES (?, ?, ?, ?)`,
+        [model_id, model.model_name, model.model_price, product_id]
       );
     }
 
@@ -367,9 +384,9 @@ router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
     for (const model of models) {
       const model_id = model.model_id || uuidv4();
       await connection.query(
-        `INSERT INTO model (model_id, model_name, model_price, model_quantity, product_id) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [model_id, model.model_name, model.model_price, model.model_quantity, product_id]
+        `INSERT INTO model (model_id, model_name, model_price, product_id) 
+         VALUES (?, ?, ?, ?)`,
+        [model_id, model.model_name, model.model_price, product_id]
       );
     }
 

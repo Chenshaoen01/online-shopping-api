@@ -1,13 +1,15 @@
 const express = require('express');
+const router = express.Router();
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const axios = require('axios')
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
-const router = express.Router();
-router.use(bodyParser.json());
-
+const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
+
 const pool = mysql.createPool({
   host: process.env.MY_SQL_PATH,
   user: process.env.MY_SQL_USER_NAME,
@@ -15,7 +17,19 @@ const pool = mysql.createPool({
   password: process.env.MY_SQL_PQSSWORD
 }).promise();
 
+router.use(bodyParser.json());
+
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const generateCsrfToken = () => {
+  const csrfToken = crypto.randomBytes(16).toString('hex'); // 隨機生成 token
+  const csrfSecret = process.env.CSRF_SECRET; // 從環境變數獲取密鑰
+  const signature = crypto
+    .createHmac('sha256', csrfSecret)
+    .update(csrfToken)
+    .digest('hex'); // 計算簽名
+  return `${csrfToken}.${signature}`; // 返回帶簽名的 token
+};
 
 // Middleware: 驗證 JWT token
 function authenticateToken(req, res, next) {
@@ -117,46 +131,131 @@ router.post('/login', async (req, res) => {
     }
     const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
 
-    // 生成 CSRF token
-    const csrfToken = uuidv4();
-
     // 將 JWT 存入 HttpOnly Cookie
     res.cookie('jwt', token, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production', 
-      maxAge: 60 * 60 * 1000 
+      maxAge: 60 * 60 * 1000 * 24
     });
 
-    // 將 CSRF token 傳送給前端
+    // 將 CSRF token 存入 HttpOnly Cookie
+    const csrfToken = generateCsrfToken();
     res.cookie('csrfToken', csrfToken, {
-      httpOnly: false, 
+      httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000
+      maxAge: 60 * 60 * 1000 * 24
     });
 
-    res.status(200).send({
-      message: "登入成功",
-      csrfToken
-    });
+    res.status(200).send({message: "登入成功"});
   } catch (err) {
     res.status(500).send({ message: "數據庫錯誤。", error: err });
   }
 });
 
+// google登入
+router.post('/googleLogin', async (req, res) => {
+  const { access_token } = req.body;
+
+  if (!access_token) {
+    return res.status(400).send({ message: "Access token 是必填的。" });
+  }
+
+  try {
+    // 使用 Google API 獲取用戶信息
+    const response = await axios.get(
+      `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`
+    );
+
+    console.log('access_token', access_token)
+    const { email, name } = response.data;
+
+    console.log('response.data', response.data)
+    if (!email) {
+      return res.status(400).send({ message: "無法從 Google API 獲取 Email。" });
+    }
+
+    // 檢查用戶是否已存在於資料庫中
+    const [users] = await pool.query(
+      "SELECT * FROM user WHERE user_email = ?",
+      [email]
+    );
+
+    let user;
+
+    if (users.length === 0) {
+      // 如果用戶不存在，新增用戶
+      const user_id = uuidv4();
+      const defaultPassword = uuidv4(); // 設定一個隨機密碼，供日後重置使用
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+      await pool.query(
+        "INSERT INTO user (user_id, user_name, user_email, user_tel, user_password, user_authority) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          user_id,
+          name || "Google User",
+          email,
+          "", // 電話號碼可以留空
+          hashedPassword,
+          "customer",
+        ]
+      );
+
+      user = {
+        user_id,
+        user_name: name || "Google User",
+        user_email: email,
+        user_authority: "customer",
+      };
+    } else {
+      // 如果用戶已存在
+      user = users[0];
+    }
+
+    // 生成 JWT token
+    const JWTPayload = {
+      user_id: user.user_id,
+      user_authority: user.user_authority,
+    };
+    const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
+
+    // 將 JWT 存入 HttpOnly Cookie
+    res.cookie('jwt', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 1000 * 24
+    });
+
+    // 將 CSRF token 存入 HttpOnly Cookie
+    const csrfToken = generateCsrfToken();
+    res.cookie('csrfToken', csrfToken, {
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 1000 * 24
+    });
+
+    res.status(200).send({message: "登入成功"});
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "伺服器錯誤。", error: err.message });
+  }
+});
+
 
 router.post('/logout', (req, res) => {
-  // 清除 JWT token
+  // 移除csrfToken
+  res.cookie('csrfToken', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 0,
+  });
+  
+  // 移除JWTToken
   res.cookie('jwt', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 0
-  });
-
-  // 清除 CSRF token
-  res.cookie('csrfToken', '', {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 0
+      sameSite: 'Strict',
+      maxAge: 0,
   });
 
   res.status(200).send({ message: "登出成功" });
@@ -165,6 +264,30 @@ router.post('/logout', (req, res) => {
 
 // 通過 ID 獲取用戶資料
 router.get('/getUserInfo', async function(req, res) {
+  // 從 Cookie 中取得 JWT token
+  const token = req.cookies.jwt;
+
+  if (!token) {
+    return res.status(401).json({ message: "未登入。" });
+  }
+
+  try {
+    // 驗證並解碼 JWT token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user_id = decoded.user_id;
+
+    const [userData] = await getQueryById(user_id);
+    res.send(userData);
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "JWT token 無效或已過期。" });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 系統管理員帳號，通過 ID 獲取用戶資料
+router.get('/getAdminUserInfo', verifyJWT, verifyAdmin, async function(req, res) {
   // 從 Cookie 中取得 JWT token
   const token = req.cookies.jwt;
 

@@ -5,7 +5,7 @@ const fs = require('fs');
 const router = express.Router();
 const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
+const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth');
 require('dotenv').config();
 
 const pool = mysql.createPool({
@@ -84,16 +84,33 @@ router.get('/:banner_id', async (req, res) => {
   }
 });
 
-let fileName = "";
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "public/images/banner");
+    try {
+      cb(null, "public/images/banner"); // 設定檔案存放的目錄
+    } catch (err) {
+      console.error("Error in setting destination:", err.message);
+      cb(err); // 傳遞錯誤給 multer，停止操作
+    }
   },
   filename: function (req, file, cb) {
-    const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/;
-    const extension = file.originalname.match(fileExtensionPattern)[0];
-    fileName = file.fieldname + "-" + Date.now() + extension;
-    cb(null, fileName);
+    try {
+      const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/i;
+      const extensionMatch = file.originalname.match(fileExtensionPattern);
+
+      if (!extensionMatch) {
+        throw new Error("Invalid file extension");
+      }
+
+      const extension = extensionMatch[0];
+      const uniqueFileName = file.fieldname + "-" + Date.now() + extension;
+
+      req.uploadedFileName = uniqueFileName; // 將檔案名稱存入 req，便於後續處理
+      cb(null, uniqueFileName);
+    } catch (err) {
+      console.error("Error in setting filename:", err.message);
+      cb(err); // 傳遞錯誤給 multer，停止操作
+    }
   },
 });
 
@@ -106,11 +123,19 @@ router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), (r
   }
 
   try {
-    res.status(201).json({ message: 'Banner image added successfully', fileName });
+    // 從 req 中獲取檔案名稱
+    const uploadedFileName = req.uploadedFileName;
+
+    res.status(201).json({
+      message: 'Banner image added successfully',
+      fileName: uploadedFileName,
+    });
   } catch (err) {
+    console.error("Error in handling banner image upload:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Banner 新增
 router.post('/', verifyJWT, verifyAdmin, async (req, res) => {

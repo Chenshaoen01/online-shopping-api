@@ -75,7 +75,7 @@ router.get('/:banner_id', async (req, res) => {
     );
 
     if (banner.length === 0) {
-      return res.status(404).json({ error: 'Banner not found' });
+      return res.status(404).json({ message: '找不到對應的首頁輪播資料' });
     }
 
     res.json(banner[0]);
@@ -119,7 +119,7 @@ const upload = multer({ storage: storage });
 // BannerImg 新增
 router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+    return res.status(400).json({ message: '未提供檔案' });
   }
 
   try {
@@ -127,12 +127,12 @@ router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), (r
     const uploadedFileName = req.uploadedFileName;
 
     res.status(201).json({
-      message: 'Banner image added successfully',
+      message: '圖片新增成功',
       fileName: uploadedFileName,
     });
   } catch (err) {
     console.error("Error in handling banner image upload:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: "圖片新增失敗" });
   }
 });
 
@@ -149,7 +149,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
       [banner_id, new_banner_img, banner_link, banner_sort]
     );
 
-    res.status(201).json({ message: 'Banner added successfully' });
+    res.status(201).json({ message: '首頁輪播資料新增成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -181,10 +181,10 @@ router.put('/:banner_id', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Banner not found' });
+      return res.status(404).json({ message: '找不到對應的首頁輪播資料' });
     }
 
-    res.json({ message: 'Banner updated successfully' });
+    res.json({ message: '首頁輪播資料編輯成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -195,7 +195,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { banner_ids } = req.body;
 
   if (!Array.isArray(banner_ids) || banner_ids.length === 0) {
-    return res.status(400).json({ error: 'Please provide an array of banner IDs' });
+    return res.status(400).json({ message: '須指定欲刪除的首頁輪播資料' });
   }
 
   try {
@@ -206,7 +206,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'No banners found to delete' });
+      return res.status(404).json({ message: '找不到對應的首頁輪播資料' });
     }
 
     // 刪除相關圖片
@@ -223,7 +223,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
       [banner_ids]
     );
 
-    res.json({ message: 'Banners deleted successfully', deletedCount: result.affectedRows });
+    res.json({ message: '首頁輪播資料刪除成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

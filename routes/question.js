@@ -81,7 +81,7 @@ router.get('/:question_id', async (req, res) => {
     );
 
     if (question.length === 0) {
-      return res.status(404).json({ error: 'Question not found' });
+      return res.status(404).json({ message: '找不到對應的問答' });
     }
 
     res.json(question[0]);
@@ -102,7 +102,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
       [question_id, question_title, question_description, question_sort]
     );
 
-    res.status(201).json({ message: 'Question added successfully', question_id });
+    res.status(201).json({ message: '問答新增成功', question_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -122,10 +122,10 @@ router.put('/:question_id', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Question not found' });
+      return res.status(404).json({ message: '找不到對應的問答' });
     }
 
-    res.json({ message: 'Question updated successfully' });
+    res.json({ message: '問答編輯成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -136,7 +136,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { question_ids } = req.body;
 
   if (!Array.isArray(question_ids) || question_ids.length === 0) {
-    return res.status(400).json({ error: 'Please provide an array of question IDs' });
+    return res.status(400).json({ message: '須提供欲刪除的問答編號' });
   }
 
   try {
@@ -146,10 +146,10 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'No questions found to delete' });
+      return res.status(404).json({ message: '找不到對應的問答' });
     }
 
-    res.json({ message: 'Questions deleted successfully' });
+    res.json({ message: '問答刪除成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

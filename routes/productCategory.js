@@ -172,7 +172,7 @@ router.get('/:category_id', async (req, res) => {
     );
 
     if (category.length === 0) {
-      return res.status(404).json({ error: 'Category not found' });
+      return res.status(404).json({ message: '找不到對應的商品類別' });
     }
 
     res.json(category[0]);
@@ -186,7 +186,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { category_id, category_name } = req.body;
 
   if (!category_id || !category_name) {
-    return res.status(400).json({ error: 'category_id and category_name are required' });
+    return res.status(400).json({ message: '類別編號及類別名稱為必填項目' });
   }
 
   try {
@@ -196,7 +196,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (existingCategory.length > 0) {
-      return res.status(400).json({ error: 'Category ID already exists. Please use a different ID' });
+      return res.status(400).json({ message: '類別編號已被使用' });
     }
     
     await pool.query(
@@ -204,7 +204,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
       [category_id, category_name]
     );
 
-    res.status(201).json({ message: 'Category added successfully', category_id });
+    res.status(201).json({ message: '商品類別新增成功', category_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -216,7 +216,7 @@ router.put('/:category_id', verifyJWT, verifyAdmin, async (req, res) => {
   const { category_name } = req.body;
 
   if (!category_name) {
-    return res.status(400).json({ error: 'category_name is required' });
+    return res.status(400).json({ message: '類別名稱為必填項目' });
   }
 
   try {
@@ -226,10 +226,10 @@ router.put('/:category_id', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Category not found' });
+      return res.status(404).json({ message: '找不到對應的商品類別' });
     }
 
-    res.json({ message: 'Category updated successfully' });
+    res.json({ message: '商品類別更新成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -240,7 +240,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     const { category_ids } = req.body;
   
     if (!Array.isArray(category_ids) || category_ids.length === 0) {
-      return res.status(400).json({ error: 'Please provide an array of category IDs' });
+      return res.status(400).json({ message: '須提供欲刪除的類別編號' });
     }
   
     try {
@@ -253,7 +253,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
       if (relatedProducts.length > 0) {
         const relatedCategoryIds = relatedProducts.map((product) => product.category_id);
         return res.status(400).json({
-          error: 'Cannot delete categories that are linked to products',
+          error: '商品類別已被使用，無法刪除',
           relatedCategoryIds,
         });
       }
@@ -265,10 +265,10 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
       );
   
       if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'No categories found to delete' });
+        return res.status(404).json({ message: '找不到對應的商品類別' });
       }
   
-      res.json({ message: 'Categories deleted successfully' });
+      res.json({ message: '商品類別刪除成功' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

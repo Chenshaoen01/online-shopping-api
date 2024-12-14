@@ -73,7 +73,7 @@ router.get('/getUser/:id', authenticateToken, async function(req, res) {
   }
 });
 
-// 1. 註冊
+// 註冊
 router.post('/register', async (req, res) => {
   const { user_name, user_email, user_tel, user_password } = req.body;
 
@@ -81,13 +81,23 @@ router.post('/register', async (req, res) => {
     return res.status(400).send({ message: "註冊資料未完整填寫" });
   }
 
-  // 生成 UUID
-  const user_id = uuidv4();
-
-  // 雜湊密碼
-  const hashedPassword = await bcrypt.hash(user_password, 10);
-
   try {
+    // 生成 UUID
+    const user_id = uuidv4();
+  
+    // 雜湊密碼
+    const hashedPassword = await bcrypt.hash(user_password, 10);
+    
+    const [matchEmailUser] = await pool.query(
+      "SELECT * FROM user WHERE user_email = ?",
+      [user_email]
+    );
+
+    if(matchEmailUser.length > 0) {
+      res.status(400).send({ message: "該 Email 已被註冊" });
+      return
+    }
+
     await pool.query(
       "INSERT INTO user (user_id, user_name, user_email, user_tel, user_password, user_authority) VALUES (?, ?, ?, ?, ?, ?)",[user_id, user_name, user_email, user_tel, hashedPassword, "customer"]
     );
@@ -97,7 +107,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 2. 登入
+// 登入
 router.post('/login', async (req, res) => {
   const { user_email, user_password } = req.body;
 
@@ -124,6 +134,19 @@ router.post('/login', async (req, res) => {
       return res.status(401).send({ message: "Email 或密碼不正確。" });
     }
 
+    // 從請求中獲取 domain
+    const origin = req.headers.origin || `https://${req.headers.host}`;
+    const url = new URL(origin);
+    const domain = url.hostname;
+
+    console.log(domain)
+
+    // 驗證 domain 是否在允許的範圍內
+    const allowedDomains = [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`];
+    if (!allowedDomains.includes(domain)) {
+      return res.status(403).send({ message: "不允許的來源。" });
+    }
+
     // 生成 JWT token
     const JWTPayload = { 
       user_id: user.user_id,
@@ -135,7 +158,8 @@ router.post('/login', async (req, res) => {
     res.cookie('jwt', token, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production', 
-      maxAge: 60 * 60 * 1000 * 24
+      maxAge: 60 * 60 * 1000 * 24,
+      domain: domain
     });
 
     // 將 CSRF token 存入 HttpOnly Cookie
@@ -143,7 +167,8 @@ router.post('/login', async (req, res) => {
     res.cookie('csrfToken', csrfToken, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24
+      maxAge: 60 * 60 * 1000 * 24,
+      domain: domain
     });
 
     res.status(200).send({message: "登入成功"});
@@ -165,11 +190,7 @@ router.post('/googleLogin', async (req, res) => {
     const response = await axios.get(
       `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`
     );
-
-    console.log('access_token', access_token)
     const { email, name } = response.data;
-
-    console.log('response.data', response.data)
     if (!email) {
       return res.status(400).send({ message: "無法從 Google API 獲取 Email。" });
     }
@@ -211,6 +232,17 @@ router.post('/googleLogin', async (req, res) => {
       user = users[0];
     }
 
+    // 從請求中獲取 domain
+    const origin = req.headers.origin || `https://${req.headers.host}`;
+    const url = new URL(origin);
+    const domain = url.hostname;
+    
+    // 驗證 domain 是否在允許的範圍內
+    const allowedDomains = [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`];
+    if (!allowedDomains.includes(domain)) {
+      return res.status(403).send({ message: "不允許的來源。" });
+    }
+
     // 生成 JWT token
     const JWTPayload = {
       user_id: user.user_id,
@@ -222,7 +254,8 @@ router.post('/googleLogin', async (req, res) => {
     res.cookie('jwt', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24
+      maxAge: 60 * 60 * 1000 * 24,
+      domain: domain
     });
 
     // 將 CSRF token 存入 HttpOnly Cookie
@@ -230,7 +263,8 @@ router.post('/googleLogin', async (req, res) => {
     res.cookie('csrfToken', csrfToken, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24
+      maxAge: 60 * 60 * 1000 * 24,
+      domain: domain
     });
 
     res.status(200).send({message: "登入成功"});

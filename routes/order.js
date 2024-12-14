@@ -63,7 +63,7 @@ router.post('/', verifyJWT, async (req, res) => {
     // 插入 order 記錄
     await connection.query(
       `INSERT INTO \`order\` (order_id, user_id, total_price, order_status) 
-       VALUES (?, ?, ?, 'Pending')`,
+       VALUES (?, ?, ?, '未付款')`,
       [order_id, user_id, total_price]
     );
 
@@ -160,8 +160,6 @@ router.get('/',verifyJWT, verifyAdmin, async (req, res) => {
   }
 });
 
-
-
 // 客戶查詢自己的所有訂單
 router.get('/userOrders', verifyJWT, async (req, res) => {
   // 從 Cookie 中取得 JWT token
@@ -202,7 +200,7 @@ router.get('/:order_id', verifyJWT, async (req, res) => {
     );
 
     if (order.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ message: '找不到對應的訂單' });
     }
 
     const [user] = await pool.query(
@@ -228,7 +226,7 @@ router.put('/orderStatus', verifyJWT, verifyAdmin, async (req, res) => {
 
   // 驗證輸入
   if (!Array.isArray(order_ids) || order_ids.length === 0) {
-    return res.status(400).json({ error: 'Please provide an array of order IDs' });
+    return res.status(400).json({ message: '須指定欲修改訂單狀態的訂單' });
   }
 
   try {
@@ -239,10 +237,10 @@ router.put('/orderStatus', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'No orders found to update' });
+      return res.status(404).json({ message: '找不到對應的訂單' });
     }
 
-    res.json({ message: 'Order statuses updated successfully' });
+    res.json({ message: '訂單狀態調整成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -254,7 +252,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
 
   // 驗證輸入
   if (!Array.isArray(order_ids) || order_ids.length === 0) {
-    return res.status(400).json({ error: 'Please provide an array of order IDs' });
+    return res.status(400).json({ message: '須指定欲刪除的訂單' });
   }
 
   const connection = await pool.getConnection();
@@ -275,11 +273,11 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
 
     if (result.affectedRows === 0) {
       await connection.rollback();
-      return res.status(404).json({ error: 'No orders found to delete' });
+      return res.status(404).json({ message: '找不到對應的訂單' });
     }
 
     await connection.commit();
-    res.json({ message: 'Orders and related items deleted successfully' });
+    res.json({ message: '訂單刪除成功' });
   } catch (err) {
     await connection.rollback();
     res.status(500).json({ error: err.message });

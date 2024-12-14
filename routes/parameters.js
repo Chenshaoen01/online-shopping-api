@@ -70,20 +70,20 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { param_id, param_content } = req.body;
 
   if (!param_id) {
-    return res.status(400).json({ error: 'param_id' });
+    return res.status(400).json({ message: '參數編號為必填項目' });
   }
 
   try {
     // 檢查 param_id 是否重複
     const [[existingParam]] = await pool.query(`SELECT param_id FROM parameters WHERE param_id = ?`, [param_id]);
     if (existingParam) {
-      return res.status(400).json({ error: 'param_id already exists' });
+      return res.status(400).json({ message: '參數編號已被使用' });
     }
 
     // 插入資料
     await pool.query(`INSERT INTO parameters (param_id, param_content) VALUES (?, ?)`, [param_id, param_content]);
 
-    res.status(201).json({ message: 'Parameter added successfully', param_id });
+    res.status(201).json({ message: '參數新增成功', param_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -103,10 +103,10 @@ router.put('/:param_id', verifyJWT, verifyAdmin, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Parameter not found' });
+      return res.status(404).json({ message: '找不到對應的參數' });
     }
 
-    res.json({ message: 'Parameter updated successfully' });
+    res.json({ message: '參數編輯成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -117,17 +117,17 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { param_ids } = req.body;
 
   if (!Array.isArray(param_ids) || param_ids.length === 0) {
-    return res.status(400).json({ error: 'Please provide an array of param_ids' });
+    return res.status(400).json({ message: '須提供欲刪除的參數編號' });
   }
 
   try {
     const [result] = await pool.query(`DELETE FROM parameters WHERE param_id IN (?)`, [param_ids]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'No parameters found to delete' });
+      return res.status(404).json({ message: '找不到對應的參數編號' });
     }
 
-    res.json({ message: 'Parameters deleted successfully' });
+    res.json({ message: '參數刪除成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

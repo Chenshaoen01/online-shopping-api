@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
-  origin: [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`],
+  origin: [`${process.env.ADMIN_SYSTEM_URL}`, `${process.env.CUSTOMER_SYSTEM_URL}`],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));

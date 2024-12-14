@@ -312,7 +312,7 @@ const productUpload = multer({ storage: productStorage });
 router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
   try {
     const uploadedFileName = req.uploadedFileName;
-    res.status(201).json({ message: 'Product image added successfully', productFileName: uploadedFileName });
+    res.status(201).json({ message: '產品圖片新增成功', productFileName: uploadedFileName });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -354,7 +354,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
     }
 
     await connection.commit();
-    res.status(201).json({ message: 'Product added successfully', product_id });
+    res.status(201).json({ message: '產品新增成功', product_id });
   } catch (err) {
     await connection.rollback();
     res.status(500).json({ error: err.message });
@@ -413,7 +413,7 @@ router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 
     await connection.commit();
-    res.json({ message: 'Product updated successfully' });
+    res.json({ message: '產品更新成功' });
   } catch (err) {
     await connection.rollback();
     res.status(500).json({ error: err.message });
@@ -428,11 +428,11 @@ router.post('/update-active-status', verifyJWT, verifyAdmin, async (req, res) =>
 
   // 驗證參數
   if (![0, 1].includes(isActive)) {
-    return res.status(400).json({ error: 'Invalid is_active value. Must be 0 or 1.' });
+    return res.status(400).json({ message: '未正確提供資料' });
   }
 
   if (!Array.isArray(product_ids) || product_ids.length === 0) {
-    return res.status(400).json({ error: 'Invalid product_ids array.' });
+    return res.status(400).json({ message: `須指定欲${isActive? '上架':'下架'}的產品` });
   }
 
   const connection = await pool.getConnection();
@@ -448,11 +448,11 @@ router.post('/update-active-status', verifyJWT, verifyAdmin, async (req, res) =>
 
     // 驗證是否成功更新
     if (result.affectedRows === 0) {
-      throw new Error('No products found or updated.');
+      throw new Error('找不到對應的商品');
     }
 
     await connection.commit();
-    res.json({ message: 'Products updated successfully', affectedRows: result.affectedRows });
+    res.json({ message: `商品${isActive? '上架':'下架'}成功`, affectedRows: result.affectedRows });
   } catch (err) {
     await connection.rollback();
     res.status(500).json({ error: err.message });
@@ -466,7 +466,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
   const { product_ids } = req.body;
 
   if (!Array.isArray(product_ids) || product_ids.length === 0) {
-    return res.status(400).json({ error: 'Invalid product_ids array' });
+    return res.status(400).json({ message: '須指定欲刪除的產品' });
   }
 
   const connection = await pool.getConnection();
@@ -491,7 +491,7 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     }
 
     await connection.commit();
-    res.json({ message: 'Products deleted successfully' });
+    res.json({ message: '產品刪除成功' });
   } catch (err) {
     await connection.rollback();
     res.status(500).json({ error: err.message });

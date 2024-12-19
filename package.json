@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "build": "",
     "start": "node ./bin/www"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "uuid": "^10.0.0"
   },
   "_moduleAliases": {
+    "@helpers": "./helpers",
     "@middlewares": "./middlewares",
     "@routes": "./routes"
   }

@@ -1,15 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
+const pool = require('@helpers/connection');
 const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
-
-const pool = mysql.createPool({
-  host: process.env.MY_SQL_PATH,
-  user: process.env.MY_SQL_USER_NAME,
-  password: process.env.MY_SQL_PQSSWORD,
-  database: process.env.MY_SQL_DB_NAME
-});
 
 // 取得所有參數資料（支援分頁）
 router.get('/', async (req, res) => {

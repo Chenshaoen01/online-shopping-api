@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2');
+const pool = require('@helpers/connection');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -9,13 +9,6 @@ const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
 require('dotenv').config();
-
-const pool = mysql.createPool({
-  host: process.env.MY_SQL_PATH,
-  user: process.env.MY_SQL_USER_NAME,
-  database: process.env.MY_SQL_DB_NAME,
-  password: process.env.MY_SQL_PQSSWORD
-}).promise();
 
 router.use(bodyParser.json());
 

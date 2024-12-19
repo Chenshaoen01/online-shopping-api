@@ -1,19 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
+const pool = require('@helpers/connection');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const cookieParser = require('cookie-parser');
 const csurf = require('csurf');
 const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
 require('dotenv').config();
-
-const pool = mysql.createPool({
-  host: process.env.MY_SQL_PATH,
-  user: process.env.MY_SQL_USER_NAME,
-  password: process.env.MY_SQL_PQSSWORD,
-  database: process.env.MY_SQL_DB_NAME
-});
 
 const JWT_SECRET = process.env.JWT_SECRET;
 

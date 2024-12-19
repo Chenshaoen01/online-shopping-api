@@ -1,16 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
+const pool = require('@helpers/connection');
 const { v4: uuidv4 } = require('uuid');
 const {verifyJWT, verifyAdmin} = require('@middlewares/auth')
 require('dotenv').config();
-
-const pool = mysql.createPool({
-  host: process.env.MY_SQL_PATH,
-  user: process.env.MY_SQL_USER_NAME,
-  password: process.env.MY_SQL_PQSSWORD,
-  database: process.env.MY_SQL_DB_NAME
-});
 
 // Question查詢（每頁10筆，依頁數顯示）
 router.get('/', async (req, res) => {

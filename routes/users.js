@@ -150,6 +150,7 @@ router.post('/login', async (req, res) => {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production', 
       maxAge: 60 * 60 * 1000 * 24,
+      sameSite: 'none'
     });
 
     // 將 CSRF token 存入 HttpOnly Cookie
@@ -158,6 +159,7 @@ router.post('/login', async (req, res) => {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
+      sameSite: 'none'
     });
 
     res.status(200).send({message: "登入成功"});
@@ -244,6 +246,7 @@ router.post('/googleLogin', async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
+      sameSite: 'none'
     });
 
     // 將 CSRF token 存入 HttpOnly Cookie
@@ -252,6 +255,7 @@ router.post('/googleLogin', async (req, res) => {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
+      sameSite: 'none'
     });
 
     res.status(200).send({message: "登入成功"});

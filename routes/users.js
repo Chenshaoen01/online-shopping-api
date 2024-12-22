@@ -145,20 +145,18 @@ router.post('/login', async (req, res) => {
   const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
 
   const csrfToken = generateCsrfToken();
-  const secureParam = process.env.NODE_ENV === 'production'
-  const SameSiteParam = process.env.NODE_ENV === 'production'? 'None' : 'Lax'
 
   // 將 JWT 存入 HttpOnly Cookie
   // 將 CSRF token 存入 HttpOnly Cookie
   if(process.env.NODE_ENV === 'production') {
     res.setHeader('Set-Cookie', [
-      `jwt=${token}; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
-      `csrfToken=${csrfToken}; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`
+      `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
+      `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`
     ]);
   } else {
     res.setHeader('Set-Cookie', [
-      `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}`,
-      `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}`
+      `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`,
+      `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000} Path=/`
     ]);
   }
 
@@ -232,19 +230,27 @@ router.post('/googleLogin', async (req, res) => {
     }
 
     // 生成 JWT token
-    const JWTPayload = { user_id: user.user_id,  user_authority: user.user_authority }
+    const JWTPayload = { 
+      user_id: user.user_id,
+      user_authority: user.user_authority 
+    }
     const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
-    
+  
     const csrfToken = generateCsrfToken();
-    const secureParam = process.env.NODE_ENV === 'production'
-    const SameSiteParam = process.env.NODE_ENV === 'production'? 'None' : 'Lax'
-
+  
     // 將 JWT 存入 HttpOnly Cookie
     // 將 CSRF token 存入 HttpOnly Cookie
-    res.setHeader('Set-Cookie', [
-      `jwt=${token}; HttpOnly; Secure=${secureParam}; SameSite=${SameSiteParam}; Max-Age=${60 * 60 * 24 * 1000}`,
-      `csrfToken=${csrfToken}; HttpOnly; Secure=${secureParam}; SameSite=${SameSiteParam}; Max-Age=${60 * 60 * 24 * 1000}`
-    ]);
+    if(process.env.NODE_ENV === 'production') {
+      res.setHeader('Set-Cookie', [
+        `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
+        `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`
+      ]);
+    } else {
+      res.setHeader('Set-Cookie', [
+        `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`,
+        `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000} Path=/`
+      ]);
+    }
 
     res.status(200).send({message: "登入成功"});
   } catch (err) {

@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
   if (!user_email || !user_password) {
     return res.status(400).send({ message: "Email 和密碼是必填的。" });
   }
-
+  
   try {
     const [users] = await pool.query(
       "SELECT * FROM user WHERE user_email = ?",
@@ -150,16 +150,16 @@ router.post('/login', async (req, res) => {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production', 
       maxAge: 60 * 60 * 1000 * 24,
-      sameSite: 'none'
+      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
     });
-
+  
     // 將 CSRF token 存入 HttpOnly Cookie
     const csrfToken = generateCsrfToken();
     res.cookie('csrfToken', csrfToken, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
-      sameSite: 'none'
+      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
     });
 
     res.status(200).send({message: "登入成功"});
@@ -246,16 +246,16 @@ router.post('/googleLogin', async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
-      sameSite: 'none'
+      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
     });
 
     // 將 CSRF token 存入 HttpOnly Cookie
-    const csrfToken = generateCsrfToken();
+    const csrfToken = generateCsrfToken();W
     res.cookie('csrfToken', csrfToken, {
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 1000 * 24,
-      sameSite: 'none'
+      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
     });
 
     res.status(200).send({message: "登入成功"});

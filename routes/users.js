@@ -107,65 +107,62 @@ router.post('/login', async (req, res) => {
   if (!user_email || !user_password) {
     return res.status(400).send({ message: "Email 和密碼是必填的。" });
   }
-  
-  try {
-    const [users] = await pool.query(
-      "SELECT * FROM user WHERE user_email = ?",
-      [user_email]
-    );
 
-    if (users.length === 0) {
-      return res.status(401).send({ message: "Email 或密碼不正確。" });
-    }
+  const [users] = await pool.query(
+    "SELECT * FROM user WHERE user_email = ?",
+    [user_email]
+  );
 
-    const user = users[0];
-
-    // 比較密碼與存儲的雜湊值
-    const passwordMatch = await bcrypt.compare(user_password, user.user_password);
-
-    if (!passwordMatch) {
-      return res.status(401).send({ message: "Email 或密碼不正確。" });
-    }
-
-    // 從請求中獲取 domain
-    const origin = req.headers.origin || `https://${req.headers.host}`;
-    const url = new URL(origin);
-    const domain = url.hostname;
-
-    // 驗證 domain 是否在允許的範圍內
-    const allowedDomains = [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`];
-    if (!allowedDomains.includes(domain)) {
-      return res.status(403).send({ message: "不允許的來源。" });
-    }
-
-    // 生成 JWT token
-    const JWTPayload = { 
-      user_id: user.user_id,
-      user_authority: user.user_authority 
-    }
-    const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
-
-    // 將 JWT 存入 HttpOnly Cookie
-    res.cookie('jwt', token, {
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === 'production', 
-      maxAge: 60 * 60 * 1000 * 24,
-      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
-    });
-  
-    // 將 CSRF token 存入 HttpOnly Cookie
-    const csrfToken = generateCsrfToken();
-    res.cookie('csrfToken', csrfToken, {
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24,
-      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
-    });
-
-    res.status(200).send({message: "登入成功"});
-  } catch (err) {
-    res.status(500).send({ message: "數據庫錯誤。", error: err });
+  if (users.length === 0) {
+    return res.status(401).send({ message: "Email 或密碼不正確。" });
   }
+
+  const user = users[0];
+
+  // 比較密碼與存儲的雜湊值
+  const passwordMatch = await bcrypt.compare(user_password, user.user_password);
+
+  if (!passwordMatch) {
+    return res.status(401).send({ message: "Email 或密碼不正確。" });
+  }
+
+  // 從請求中獲取 domain
+  const origin = req.headers.origin || `https://${req.headers.host}`;
+  const url = new URL(origin);
+  const domain = url.hostname;
+
+  // 驗證 domain 是否在允許的範圍內
+  const allowedDomains = [`${process.env.ADMIN_SYSTEM_DOMAIN}`, `${process.env.CUSTOMER_SYSTEM_DOMAIN}`];
+  if (!allowedDomains.includes(domain)) {
+    return res.status(403).send({ message: "不允許的來源。" });
+  }
+
+  // 生成 JWT token
+  const JWTPayload = { 
+    user_id: user.user_id,
+    user_authority: user.user_authority 
+  }
+  const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
+
+  const csrfToken = generateCsrfToken();
+  const secureParam = process.env.NODE_ENV === 'production'
+  const SameSiteParam = process.env.NODE_ENV === 'production'? 'None' : 'Lax'
+
+  // 將 JWT 存入 HttpOnly Cookie
+  // 將 CSRF token 存入 HttpOnly Cookie
+  if(process.env.NODE_ENV === 'production') {
+    res.setHeader('Set-Cookie', [
+      `jwt=${token}; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
+      `csrfToken=${csrfToken}; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`
+    ]);
+  } else {
+    res.setHeader('Set-Cookie', [
+      `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}`,
+      `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}`
+    ]);
+  }
+
+  res.status(200).send({message: "登入成功"});
 });
 
 // google登入
@@ -235,33 +232,24 @@ router.post('/googleLogin', async (req, res) => {
     }
 
     // 生成 JWT token
-    const JWTPayload = {
-      user_id: user.user_id,
-      user_authority: user.user_authority,
-    };
+    const JWTPayload = { user_id: user.user_id,  user_authority: user.user_authority }
     const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
+    
+    const csrfToken = generateCsrfToken();
+    const secureParam = process.env.NODE_ENV === 'production'
+    const SameSiteParam = process.env.NODE_ENV === 'production'? 'None' : 'Lax'
 
     // 將 JWT 存入 HttpOnly Cookie
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24,
-      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
-    });
-
     // 將 CSRF token 存入 HttpOnly Cookie
-    const csrfToken = generateCsrfToken();W
-    res.cookie('csrfToken', csrfToken, {
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 1000 * 24,
-      sameSite: process.env.NODE_ENV === 'production'? 'none' : 'lax'
-    });
+    res.setHeader('Set-Cookie', [
+      `jwt=${token}; HttpOnly; Secure=${secureParam}; SameSite=${SameSiteParam}; Max-Age=${60 * 60 * 24 * 1000}`,
+      `csrfToken=${csrfToken}; HttpOnly; Secure=${secureParam}; SameSite=${SameSiteParam}; Max-Age=${60 * 60 * 24 * 1000}`
+    ]);
 
     res.status(200).send({message: "登入成功"});
   } catch (err) {
     console.error(err);
-    res.status(500).send({ message: "伺服器錯誤。", error: err.message });
+    res.status(500).send({ message: "登入失敗。", error: err.message });
   }
 });
 

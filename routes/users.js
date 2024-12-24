@@ -142,7 +142,7 @@ router.post('/login', async (req, res) => {
     user_id: user.user_id,
     user_authority: user.user_authority 
   }
-  const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '24h' });
 
   const csrfToken = generateCsrfToken();
 
@@ -234,7 +234,7 @@ router.post('/googleLogin', async (req, res) => {
       user_id: user.user_id,
       user_authority: user.user_authority 
     }
-    const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(JWTPayload, JWT_SECRET, { expiresIn: '24h' });
   
     const csrfToken = generateCsrfToken();
   
@@ -261,21 +261,18 @@ router.post('/googleLogin', async (req, res) => {
 
 
 router.post('/logout', (req, res) => {
-  // 移除csrfToken
-  res.cookie('csrfToken', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-      maxAge: 0,
-  });
-  
-  // 移除JWTToken
-  res.cookie('jwt', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-      maxAge: 0,
-  });
+  // 移除csrfToken、JWTToken
+  if(process.env.NODE_ENV === 'production') {
+    res.setHeader('Set-Cookie', [
+      `jwt=''; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`,
+      `csrfToken=''; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`
+    ]);
+  } else {
+    res.setHeader('Set-Cookie', [
+      `jwt=''; HttpOnly; Max-Age=0; Path=/;`,
+      `csrfToken=''; HttpOnly; Max-Age=0 Path=/`
+    ]);
+  }
 
   res.status(200).send({ message: "登出成功" });
 });

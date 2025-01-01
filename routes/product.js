@@ -6,7 +6,21 @@ const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
+const AWS = require('aws-sdk');
 require('dotenv').config();
+
+// 初始化 Cloudflare R2 配置
+const s3 = new AWS.S3({
+  endpoint: process.env.R2_ENDPOINT,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  region: 'auto',
+});
+
+const BUCKET_NAME = process.env.R2_BUCKET_NAME;
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // 產品查詢（每頁10筆，依頁數顯示，並附帶產品型號與類別名稱）
 router.get('/', async (req, res) => {
@@ -270,46 +284,74 @@ router.get('/related/:product_id', async (req, res) => {
 });
 
 // 產品圖片上傳
-const productStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    try {
-      cb(null, "public/images/product"); // 設定檔案存放的目錄
-    } catch (err) {
-      console.error("Error in setting destination:", err.message);
-      cb(err); // 傳遞錯誤給 multer，停止操作
-    }
-  },
-  filename: function (req, file, cb) {
-    try {
-      const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/i;
-      const extensionMatch = file.originalname.match(fileExtensionPattern);
+// BannerImg 新增
+router.post('/productImg', verifyJWT, verifyAdmin, upload.single('productImg'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: '未提供檔案' });
+  }
 
-      if (!extensionMatch) {
-        throw new Error("Invalid file extension");
-      }
-
-      const extension = extensionMatch[0];
-      const uniqueFileName = file.fieldname + "-" + Date.now() + extension;
-      req.uploadedFileName = uniqueFileName; // 將檔案名稱存入 req，便於後續處理
-      cb(null, uniqueFileName);
-    } catch (err) {
-      console.error("Error in setting filename:", err.message);
-      cb(err); // 傳遞錯誤給 multer，停止操作
-    }
-  },
-});
-
-
-const productUpload = multer({ storage: productStorage });
-
-router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
   try {
-    const uploadedFileName = req.uploadedFileName;
-    res.status(201).json({ message: '產品圖片新增成功', productFileName: uploadedFileName });
+    const fileKey = `product/${uuidv4()}-${req.file.originalname}`;
+
+    // 上傳檔案到 R2
+    await s3
+      .upload({
+        Bucket: BUCKET_NAME,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      })
+      .promise();
+
+    res.status(201).json({
+      message: '圖片新增成功',
+      productFileName: fileKey,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error uploading to R2:', err);
+    res.status(500).json({ message: '圖片新增失敗' });
   }
 });
+// const productStorage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     try {
+//       cb(null, "public/images/product"); // 設定檔案存放的目錄
+//     } catch (err) {
+//       console.error("Error in setting destination:", err.message);
+//       cb(err); // 傳遞錯誤給 multer，停止操作
+//     }
+//   },
+//   filename: function (req, file, cb) {
+//     try {
+//       const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/i;
+//       const extensionMatch = file.originalname.match(fileExtensionPattern);
+
+//       if (!extensionMatch) {
+//         throw new Error("Invalid file extension");
+//       }
+
+//       const extension = extensionMatch[0];
+//       const uniqueFileName = file.fieldname + "-" + Date.now() + extension;
+//       req.uploadedFileName = uniqueFileName; // 將檔案名稱存入 req，便於後續處理
+//       cb(null, uniqueFileName);
+//     } catch (err) {
+//       console.error("Error in setting filename:", err.message);
+//       cb(err); // 傳遞錯誤給 multer，停止操作
+//     }
+//   },
+// });
+
+
+// const productUpload = multer({ storage: productStorage });
+
+// router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
+//   try {
+//     const uploadedFileName = req.uploadedFileName;
+//     res.status(201).json({ message: '產品圖片新增成功', productFileName: uploadedFileName });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // 產品新增 API
 router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
@@ -384,8 +426,6 @@ router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 
     for (const image of images) {
-      const filePath = path.join(__dirname, '../public/images/product', image.product_img);
-
       if (image.state === "Added") {
         const product_img_id = uuidv4();
         await connection.query(
@@ -394,9 +434,13 @@ router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
           [product_img_id, product_id, image.product_img]
         );
       } else if (image.state === "Deleted") {
-        fs.unlink(filePath, (err) => {
-          if (err) console.error(`Error deleting file ${image.product_img}:`, err);
-        });
+        // 刪除 Cloudflare R2 上的舊圖片
+        await s3
+        .deleteObject({
+          Bucket: BUCKET_NAME,
+          Key: image.product_img,
+        })
+        .promise();
 
         await connection.query(
           `DELETE FROM product_img WHERE product_img_id = ? AND product_id = ?`,
@@ -477,10 +521,13 @@ router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
     await connection.query(`DELETE FROM product WHERE product_id IN (?)`, [product_ids]);
 
     for (const image of productImages) {
-      const filePath = path.join(__dirname, '../public/images/product', image.product_img);
-      fs.unlink(filePath, (err) => {
-        if (err) console.error(`Error deleting file ${image.product_img}:`, err);
-      });
+      // 刪除 Cloudflare R2 上的舊圖片
+      await s3
+      .deleteObject({
+        Bucket: BUCKET_NAME,
+        Key: image.product_img,
+      })
+      .promise();
     }
 
     await connection.commit();

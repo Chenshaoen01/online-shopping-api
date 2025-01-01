@@ -150,13 +150,13 @@ router.post('/login', async (req, res) => {
   // 將 CSRF token 存入 HttpOnly Cookie
   if(process.env.NODE_ENV === 'production') {
     res.setHeader('Set-Cookie', [
-      `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Domain=${domain}; Max-Age=${60 * 60 * 24 * 1000}`,
-      `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Domain=${domain}; Max-Age=${60 * 60 * 24 * 1000};`
+      `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
+      `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000};`
     ]);
   } else {
     res.setHeader('Set-Cookie', [
-      `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/; Domain=${domain};`,
-      `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Domain=${domain}; Path=/;`
+      `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`,
+      `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`
     ]);
   }
 
@@ -242,13 +242,13 @@ router.post('/googleLogin', async (req, res) => {
     // 將 CSRF token 存入 HttpOnly Cookie
     if(process.env.NODE_ENV === 'production') {
       res.setHeader('Set-Cookie', [
-        `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Domain=${domain}; Max-Age=${60 * 60 * 24 * 1000}`,
-        `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Domain=${domain}; Max-Age=${60 * 60 * 24 * 1000};`
+        `jwt=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000}`,
+        `csrfToken=${csrfToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 1000};`
       ]);
     } else {
       res.setHeader('Set-Cookie', [
-        `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/; Domain=${domain};`,
-        `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Domain=${domain}; Path=/;`
+        `jwt=${token}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`,
+        `csrfToken=${csrfToken}; HttpOnly; Max-Age=${60 * 60 * 24 * 1000}; Path=/;`
       ]);
     }
 

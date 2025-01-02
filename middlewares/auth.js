@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET; // 確保環境變數中包含密鑰
@@ -7,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET; // 確保環境變數中包含密鑰
 const verifyJWT = (req, res, next) => {
   const token = req.cookies.jwt; // 從 Cookie 中取得 JWT
   if (!token) {
-    return res.status(401).send({ message: "未提供身份驗證 token。" });
+    return res.status(401).send({ message: "沒有權限執行此操作" });
   }
 
   try {
@@ -28,21 +29,36 @@ const verifyAdmin = (req, res, next) => {
   }
 };
 
-// 檢驗csrfToken是否有效
-const verifyCsrfToken = (token) => {
-  const csrfSecret = process.env.CSRF_SECRET; // 從環境變數獲取密鑰
-  const [csrfToken, signature] = token.split('.'); // 拆分 token 和簽名
+// 檢查 CSRF token 是否有效
+const verifyCsrfTokenWithSecret = (token) => {
+  if (!token) return false;
 
+  const [csrfToken, signature] = token.split('.');
   if (!csrfToken || !signature) {
-    return false; // 格式錯誤
+    return false;
   }
 
+  const CSRF_SECRET = process.env.CSRF_SECRET;
   const expectedSignature = crypto
-    .createHmac('sha256', csrfSecret)
+    .createHmac('sha256', CSRF_SECRET)
     .update(csrfToken)
-    .digest('hex'); // 計算期望的簽名
+    .digest('hex');
 
-  return expectedSignature === signature; // 簽名是否匹配
+  return expectedSignature === signature;
+};
+
+// CSRF middleware
+const verifyCsrfToken = (req, res, next) => {
+  const csrfToken = req.headers['x-csrf-token']; // 從 Header 中取得 CSRF token
+  if (!csrfToken) {
+    return res.status(403).send({ message: "沒有權限執行此操作" });
+  }
+
+  if (!verifyCsrfTokenWithSecret(csrfToken)) {
+    return res.status(403).send({ message: "沒有權限執行此操作" });
+  }
+
+  next(); // CSRF token 驗證通過
 };
 
 module.exports = {

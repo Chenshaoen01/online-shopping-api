@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('@helpers/connection');
 const { v4: uuidv4 } = require('uuid');
-const {verifyJWT, verifyAdmin} = require('@middlewares/auth')
+const {verifyJWT, verifyAdmin, verifyCsrfToken} = require('@middlewares/auth')
 require('dotenv').config();
 
 // Question查詢（每頁10筆，依頁數顯示）
@@ -84,7 +84,7 @@ router.get('/:question_id', async (req, res) => {
 });
 
 // 問題新增
-router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { question_title, question_description, question_sort } = req.body;
   const question_id = uuidv4();
 
@@ -102,7 +102,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 問題修改
-router.put('/:question_id', verifyJWT, verifyAdmin, async (req, res) => {
+router.put('/:question_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { question_id } = req.params;
   const { question_title, question_description, question_sort } = req.body;
 
@@ -125,7 +125,7 @@ router.put('/:question_id', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 問題刪除
-router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { question_ids } = req.body;
 
   if (!Array.isArray(question_ids) || question_ids.length === 0) {

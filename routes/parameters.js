@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('@helpers/connection');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
+const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth')
 require('dotenv').config();
 
 // 取得所有參數資料（支援分頁）
@@ -59,7 +59,7 @@ router.get('/:param_id', async (req, res) => {
 });
 
 // 新增參數
-router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { param_id, param_content } = req.body;
 
   if (!param_id) {
@@ -83,7 +83,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 修改參數
-router.put('/:param_id', verifyJWT, verifyAdmin, async (req, res) => {
+router.put('/:param_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { param_id } = req.params;
   const { param_content } = req.body;
 
@@ -106,7 +106,7 @@ router.put('/:param_id', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 刪除參數
-router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { param_ids } = req.body;
 
   if (!Array.isArray(param_ids) || param_ids.length === 0) {

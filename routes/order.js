@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('@helpers/connection');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
+const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -91,7 +91,7 @@ router.post('/', verifyJWT, async (req, res) => {
 });
 
 // 依照頁數查詢訂單列表
-router.get('/',verifyJWT, verifyAdmin, async (req, res) => {
+router.get('/',verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
@@ -213,8 +213,8 @@ router.get('/:order_id', verifyJWT, async (req, res) => {
   }
 });
 
-// 批量更新訂單狀態
-router.put('/orderStatus', verifyJWT, verifyAdmin, async (req, res) => {
+// 更新訂單狀態
+router.put('/orderStatus', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { order_ids, order_status } = req.body;
 
   // 驗證輸入
@@ -240,7 +240,7 @@ router.put('/orderStatus', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 刪除訂單及相關商品明細
-router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { order_ids } = req.body;
 
   // 驗證輸入

@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth')
+const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth')
 const AWS = require('aws-sdk');
 require('dotenv').config();
 
@@ -285,7 +285,7 @@ router.get('/related/:product_id', async (req, res) => {
 
 // 產品圖片上傳
 // BannerImg 新增
-router.post('/productImg', verifyJWT, verifyAdmin, upload.single('productImg'), async (req, res) => {
+router.post('/productImg', verifyJWT, verifyAdmin, verifyCsrfToken, upload.single('productImg'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: '未提供檔案' });
   }
@@ -312,49 +312,9 @@ router.post('/productImg', verifyJWT, verifyAdmin, upload.single('productImg'), 
     res.status(500).json({ message: '圖片新增失敗' });
   }
 });
-// const productStorage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     try {
-//       cb(null, "public/images/product"); // 設定檔案存放的目錄
-//     } catch (err) {
-//       console.error("Error in setting destination:", err.message);
-//       cb(err); // 傳遞錯誤給 multer，停止操作
-//     }
-//   },
-//   filename: function (req, file, cb) {
-//     try {
-//       const fileExtensionPattern = /\.([0-9a-z]+)(?=[?#])|(\.)(?:[\w]+)$/i;
-//       const extensionMatch = file.originalname.match(fileExtensionPattern);
-
-//       if (!extensionMatch) {
-//         throw new Error("Invalid file extension");
-//       }
-
-//       const extension = extensionMatch[0];
-//       const uniqueFileName = file.fieldname + "-" + Date.now() + extension;
-//       req.uploadedFileName = uniqueFileName; // 將檔案名稱存入 req，便於後續處理
-//       cb(null, uniqueFileName);
-//     } catch (err) {
-//       console.error("Error in setting filename:", err.message);
-//       cb(err); // 傳遞錯誤給 multer，停止操作
-//     }
-//   },
-// });
-
-
-// const productUpload = multer({ storage: productStorage });
-
-// router.post('/productImg', verifyJWT, verifyAdmin, productUpload.single('productImg'), async (req, res) => {
-//   try {
-//     const uploadedFileName = req.uploadedFileName;
-//     res.status(201).json({ message: '產品圖片新增成功', productFileName: uploadedFileName });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
 
 // 產品新增 API
-router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { product_name, product_info, is_active, is_recommended, category_id, models, images } = req.body;
   const product_id = uuidv4();
   const connection = await pool.getConnection();
@@ -399,7 +359,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 產品修改 API
-router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
+router.put('/:product_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { product_id } = req.params;
   const { product_name, product_info, is_active, is_recommended, category_id, models, images } = req.body;
 
@@ -460,7 +420,7 @@ router.put('/:product_id', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // 調整產品是否上架
-router.post('/update-active-status', verifyJWT, verifyAdmin, async (req, res) => {
+router.post('/update-active-status', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { isActive, product_ids } = req.body;
 
   // 驗證參數
@@ -499,7 +459,7 @@ router.post('/update-active-status', verifyJWT, verifyAdmin, async (req, res) =>
 });
 
 // 刪除產品
-router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { product_ids } = req.body;
 
   if (!Array.isArray(product_ids) || product_ids.length === 0) {

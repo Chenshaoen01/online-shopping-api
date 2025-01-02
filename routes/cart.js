@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const cookieParser = require('cookie-parser');
 const csurf = require('csurf');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
+const { verifyJWT, verifyCsrfToken } = require('@middlewares/auth');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -93,7 +93,7 @@ router.post('/', verifyJWT, async (req, res) => {
 });
 
 // 新增商品到購物車
-router.post('/items', verifyJWT, async (req, res) => {
+router.post('/items', verifyJWT, verifyCsrfToken, async (req, res) => {
   const token = req.cookies.jwt;
 
   if (!token) {
@@ -134,7 +134,7 @@ router.post('/items', verifyJWT, async (req, res) => {
   }
 });
 
-router.delete('/items/:cart_item_id', verifyJWT, async (req, res) => {
+router.delete('/items/:cart_item_id', verifyJWT, verifyCsrfToken, async (req, res) => {
   const { cart_item_id } = req.params;
   try {
     await pool.query(`DELETE FROM cart_item WHERE cart_item_id = ?`, [cart_item_id]);

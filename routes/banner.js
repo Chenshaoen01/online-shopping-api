@@ -5,7 +5,7 @@ const fs = require('fs');
 const pool = require('@helpers/connection');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { verifyJWT, verifyAdmin } = require('@middlewares/auth');
+const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth');
 const AWS = require('aws-sdk');
 require('dotenv').config();
 
@@ -87,7 +87,7 @@ router.get('/:banner_id', async (req, res) => {
 });
 
 // BannerImg 新增
-router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), async (req, res) => {
+router.post('/bannerImg', verifyJWT, verifyAdmin, verifyCsrfToken, upload.single('bannerImg'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: '未提供檔案' });
   }
@@ -116,7 +116,7 @@ router.post('/bannerImg', verifyJWT, verifyAdmin, upload.single('bannerImg'), as
 });
 
 // Banner 新增
-router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const banner_id = uuidv4();
   const { new_banner_img, banner_link, banner_sort } = req.body;
 
@@ -134,7 +134,7 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // Banner 修改
-router.put('/:banner_id', verifyJWT, verifyAdmin, async (req, res) => {
+router.put('/:banner_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { banner_id } = req.params;
   const { banner_img, new_banner_img, banner_link, banner_sort } = req.body;
 
@@ -165,7 +165,7 @@ router.put('/:banner_id', verifyJWT, verifyAdmin, async (req, res) => {
 });
 
 // Banner 刪除（支援一次刪除多筆）
-router.delete('/', verifyJWT, verifyAdmin, async (req, res) => {
+router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const { banner_ids } = req.body;
 
   if (!Array.isArray(banner_ids) || banner_ids.length === 0) {

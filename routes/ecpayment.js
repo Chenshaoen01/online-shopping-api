@@ -93,8 +93,8 @@ router.get('/', verifyJWT,async (req, res) => {
     TotalAmount: `${cartData.total_price}`,
     TradeDesc: '測試交易描述',
     ItemName: '測試商品等',
-    ReturnURL: `${HOST}/return`,
-    ClientBackURL: `${HOST}/clientReturn`,
+    ReturnURL: `${HOST}/ecpayment/return`,
+    ClientBackURL: `${HOST}/ecpayment/clientReturn`,
   };
   const create = new ecpay_payment(options);
 

@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const cookieParser = require('cookie-parser');
 const csurf = require('csurf');
 const { verifyJWT, verifyCsrfToken } = require('@middlewares/auth');
+const { getCartData } = require('@helpers/cartAction');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -35,55 +36,20 @@ router.post('/', verifyJWT, async (req, res) => {
     } else {
       // 創建新的購物車
       cart_id = uuidv4();
+      
       await pool.query(`INSERT INTO cart (cart_id, user_id) VALUES (?, ?)`, [cart_id, user_id]);
+
+      // 返回購物車ID及商品資料（含圖片）
+      res.status(200).json({
+        cart_id,
+        cart_items: []
+      });
     }
 
-    // 查詢購物車內的商品項目及相關資訊
-    const [items] = await pool.query(
-      `SELECT 
-         ci.cart_item_id,
-         ci.product_id,
-         ci.model_id,
-         ci.quantity,
-         p.product_name,
-         p.is_active,
-         m.model_name,
-         m.model_price
-       FROM cart_item ci
-       JOIN product p ON ci.product_id = p.product_id
-       JOIN model m ON ci.model_id = m.model_id
-       WHERE ci.cart_id = ?`,
-      [cart_id]
-    );
-
-    if (items.length === 0) {
-      return res.status(200).json({ cart_id, cart_items: [] });
-    }
-
-    // 取得購物車內商品的圖片
-    const productIds = items.map(item => item.product_id);
-    const [images] = await pool.query(
-      `SELECT product_id, MIN(product_img) AS product_img 
-       FROM product_img 
-       WHERE product_id IN (?) 
-       GROUP BY product_id`,
-      [productIds]
-    );
-
-    // 組合商品資料
-    const itemsWithImages = items.map(item => {
-      const productImage = images.find(image => image.product_id === item.product_id);
-      return {
-        ...item,
-        product_img: productImage?.product_img || null // 若無圖片則返回 null
-      };
-    });
+    const cartData = await getCartData(cart_id,)
 
     // 返回購物車ID及商品資料（含圖片）
-    res.status(200).json({
-      cart_id,
-      cart_items: itemsWithImages
-    });
+    res.status(200).json(cartData);
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ message: "JWT token 無效或已過期。" });

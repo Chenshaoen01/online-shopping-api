@@ -17,6 +17,7 @@
     "csurf": "^1.10.0",
     "debug": "~2.6.9",
     "dotenv": "^16.4.5",
+    "ecpay_aio_nodejs": "^1.2.2",
     "express": "~4.16.1",
     "google-auth-library": "^9.14.1",
     "http-errors": "~1.6.3",

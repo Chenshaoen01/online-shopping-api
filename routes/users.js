@@ -244,7 +244,6 @@ router.post('/googleLogin', async (req, res) => {
 
     res.status(200).send({message: "登入成功", csrfToken: csrfToken});
   } catch (err) {
-    console.error(err);
     res.status(500).send({ message: "登入失敗。", error: err.message });
   }
 });

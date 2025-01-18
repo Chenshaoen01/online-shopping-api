@@ -58,7 +58,7 @@ router.get('/', verifyJWT,async (req, res) => {
     try {
       await connection.beginTransaction();
   
-      // 更新產品是否上架
+      // 更新 merchant_trade_no
       await connection.query(
         `UPDATE cart SET merchant_trade_no = ? WHERE cart_id IN (?)`,
         [merchant_trade_no, cart_id]
@@ -121,8 +121,6 @@ function generateTradeNo(length = 20) {
 
 // 接收綠界回傳的資料
 router.post('/return', async (req, res) => {
-  console.log('req.body:', req.body);
-
   const { CheckMacValue } = req.body;
   const data = { ...req.body };
   delete data.CheckMacValue; // 此段不驗證
@@ -143,7 +141,6 @@ router.post('/return', async (req, res) => {
 
 // 用戶交易完成後的轉址
 router.get('/clientReturn', (req, res) => {
-  console.log('clientReturn:', req.body, req.query);
   res.render('return', { query: req.query });
 });
 

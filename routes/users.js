@@ -49,6 +49,11 @@ async function getQueryById(id) {
 }
 
 // 使用驗證過的 token 查詢用戶資料
+router.get('/checkLogin', verifyJWT, async function(req, res) {
+  return res.status(200).send({ message: 'Token Valid' });
+});
+
+// 使用驗證過的 token 查詢用戶資料
 router.get('/getUser/:id', authenticateToken, async function(req, res) {
   // 這裡可以通過驗證過的 token 來獲取 req.user.user_id
   if (req.user.user_id !== req.params.id) {

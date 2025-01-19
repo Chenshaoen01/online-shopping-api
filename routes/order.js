@@ -6,87 +6,23 @@ const { v4: uuidv4 } = require('uuid');
 const { verifyJWT, verifyAdmin, verifyCsrfToken } = require('@middlewares/auth');
 require('dotenv').config();
 
+const { createOrder } = require('@helpers/orderAction');
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // 建立訂單
 router.post('/', verifyJWT, async (req, res) => {
   const { cart_id } = req.body;
-  const order_id = uuidv4();
-  const connection = await pool.getConnection();
+  
   try {
-    await connection.beginTransaction();
-
-    // 檢查購物車是否存在，並取得 user_id
-    const [cartResults] = await connection.query(
-      `SELECT user_id FROM cart WHERE cart_id = ?`,
-      [cart_id]
-    );
-    if (cartResults.length === 0) {
-      return res.status(404).json({ message: '購物車不存在。' });
+    const orderCreateResult = await createOrder(cart_id);
+    if(orderCreateResult.statusCode = 200) {
+      res.status(201).json({ message: '訂單已成功創建' });
+    } else {
+      res.status(400).json({ message: '訂單建立失敗' });
     }
-    const user_id = cartResults[0].user_id;
-
-    // 獲取購物車內的商品明細
-    const [cartItems] = await connection.query(
-      `SELECT 
-         ci.cart_item_id,
-         ci.product_id,
-         ci.model_id,
-         ci.quantity,
-         n.product_name,
-         m.model_name,
-         m.model_price
-       FROM cart_item ci
-       JOIN model m ON ci.model_id = m.model_id
-       JOIN product n ON ci.product_id = n.product_id
-       WHERE ci.cart_id = ?`,
-      [cart_id]
-    );
-
-    if (cartItems.length === 0) {
-      return res.status(400).json({ message: '購物車內無商品。' });
-    }
-
-    // 計算訂單總金額
-    const total_price = cartItems.reduce(
-      (acc, item) => acc + item.model_price * item.quantity,
-      0
-    );
-
-    // 插入 order 記錄
-    await connection.query(
-      `INSERT INTO \`order\` (order_id, user_id, total_price, order_status) 
-       VALUES (?, ?, ?, '未付款')`,
-      [order_id, user_id, total_price]
-    );
-
-    // 插入 order_item 記錄
-    for (const item of cartItems) {
-      const order_item_id = uuidv4();
-      await connection.query(
-        `INSERT INTO order_item (order_item_id, order_id, product_name, model_name, quantity, model_price) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          order_item_id,
-          order_id,
-          item.product_name,
-          item.model_name,
-          item.quantity,
-          item.model_price,
-        ]
-      );
-    }
-
-    // 清空購物車
-    await connection.query(`DELETE FROM cart_item WHERE cart_id = ?`, [cart_id]);
-
-    await connection.commit();
-    res.status(201).json({ message: '訂單已成功創建', order_id });
   } catch (err) {
-    await connection.rollback();
     res.status(500).json({ error: err.message });
-  } finally {
-    connection.release();
   }
 });
 
@@ -191,7 +127,7 @@ router.get('/:order_id', verifyJWT, async (req, res) => {
       `SELECT * FROM \`order\` WHERE order_id = ?`,
       [order_id]
     );
-
+    console.log(order)
     if (order.length === 0) {
       return res.status(404).json({ message: '找不到對應的訂單' });
     }

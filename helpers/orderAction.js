@@ -2,7 +2,7 @@ const pool = require('@helpers/connection');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-async function createOrder(cart_id = "") {
+async function createOrder(cart_id = "", user_id="", store_id="", store_name="", csv_type="") {
   const order_id = uuidv4();
   const connection = await pool.getConnection();
   try {
@@ -16,10 +16,6 @@ async function createOrder(cart_id = "") {
     if (cartResults.length === 0) {
       return res.status(404).json({ message: '購物車不存在。' });
     }
-    const user_id = cartResults[0].user_id;
-    const store_id = cartResults[0].store_id;
-    const store_name = cartResults[0].store_name;
-    const csv_type = cartResults[0].csv_type;
 
     // 獲取購物車內的商品明細
     const [cartItems] = await connection.query(
@@ -48,6 +44,7 @@ async function createOrder(cart_id = "") {
       0
     );
 
+    console.log(order_id, user_id, total_price, store_id, store_name, csv_type)
     // 插入 order 記錄
     await connection.query(
       `INSERT INTO \`order\` (order_id, user_id, total_price, order_status, store_id, store_name, csv_type) 
@@ -77,7 +74,7 @@ async function createOrder(cart_id = "") {
     await connection.query(`DELETE FROM cart WHERE cart_id = ?`, [cart_id]);
 
     await connection.commit();
-    return {statusCode: 200, message: "訂單已成功創建"}
+    return {statusCode: 200, message: "訂單已成功創建", orderId: order_id}
   } catch (err) {
     await connection.rollback();
     console.log(err.message)

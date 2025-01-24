@@ -38,12 +38,6 @@ router.post('/', verifyJWT, async (req, res) => {
       cart_id = uuidv4();
       
       await pool.query(`INSERT INTO cart (cart_id, user_id) VALUES (?, ?)`, [cart_id, user_id]);
-
-      // 返回購物車ID及商品資料（含圖片）
-      res.status(200).json({
-        cart_id,
-        cart_items: []
-      });
     }
 
     const cartData = await getCartData(cart_id,)

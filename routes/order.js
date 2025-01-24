@@ -12,17 +12,41 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // 建立訂單
 router.post('/', verifyJWT, async (req, res) => {
-  const { cart_id } = req.body;
+  // 從 Cookie 中取得 JWT token
+  const token = req.cookies.jwt;
   
-  try {
-    const orderCreateResult = await createOrder(cart_id);
-    if(orderCreateResult.statusCode = 200) {
-      res.status(201).json({ message: '訂單已成功創建' });
-    } else {
-      res.status(400).json({ message: '訂單建立失敗' });
+  if (!token) {
+    return res.status(401).json({ message: "未登入。" });
+  }
+
+  // 驗證並解碼 JWT token
+  const decoded = jwt.verify(token, JWT_SECRET);
+  const user_id = decoded.user_id;
+
+  // 檢查是否已存在購物車
+  const [cart] = await pool.query(`SELECT cart_id,merchant_trade_no FROM cart WHERE user_id = ?`, [user_id]);
+  let cart_id;
+  let merchant_trade_no;
+
+  if (cart.length > 0) {
+    // 如果購物車已存在，取得購物車ID
+    cart_id = cart[0].cart_id;
+
+    const { storeId, storeName, csvType } = req.body
+  
+    try {
+      const user_id = decoded.user_id;
+      const orderCreateResult = await createOrder(cart_id, user_id, storeId, storeName, csvType);
+      if(orderCreateResult.statusCode === 200) {
+        res.status(201).json({ message: '訂單已成功創建', orderId: orderCreateResult.orderId });
+      } else {
+        res.status(400).json({ message: '訂單建立失敗' });
+      }
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } else {
+    return res.status(400).json({ message: "查無購物車資料" });
   }
 });
 

@@ -7,7 +7,7 @@ const { getCartData } = require('@helpers/cartAction');
 require('dotenv').config();
 
 // 取得環境變數
-const { MERCHANTID, HASHKEY, HASHIV, HOST } = process.env;
+const { MERCHANTID, HASHKEY, HASHIV, HOST, CUSTOMER_SYSTEM_URL } = process.env;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // 綠界提供的 SDK
@@ -32,10 +32,10 @@ const options = {
   IsProjectContractor: false,
 };
 
-router.get('/', verifyJWT,async (req, res) => {
+router.get('/', verifyJWT, async (req, res) => {
   // 從 Cookie 中取得 JWT token
   const token = req.cookies.jwt;
-  
+
   if (!token) {
     return res.status(401).json({ message: "未登入。" });
   }
@@ -44,66 +44,64 @@ router.get('/', verifyJWT,async (req, res) => {
   const decoded = jwt.verify(token, JWT_SECRET);
   const user_id = decoded.user_id;
 
-  // 檢查是否已存在購物車
-  const [cart] = await pool.query(`SELECT cart_id,merchant_trade_no FROM cart WHERE user_id = ?`, [user_id]);
-  let cart_id;
-  let merchant_trade_no;
+  // 取得訂單編號
+  const orderId = req.query.orderId
 
-  if (cart.length > 0) {
-    // 如果購物車已存在，取得購物車ID
-    cart_id = cart[0].cart_id;
-    merchant_trade_no = generateTradeNo(20);
+  // 檢查是否已存在購物車
+  const [order] = await pool.query(`SELECT * FROM \`order\` WHERE order_Id = ? AND user_id = ?`, [orderId, user_id]);
+  if (order.length > 0) {
+    let merchant_trade_no = generateTradeNo(20);
     const connection = await pool.getConnection();
 
     try {
       await connection.beginTransaction();
-  
+
       // 更新 merchant_trade_no
       await connection.query(
-        `UPDATE cart SET merchant_trade_no = ? WHERE cart_id IN (?)`,
-        [merchant_trade_no, cart_id]
+        `UPDATE \`order\` SET merchant_trade_no = ? WHERE order_Id = ?`,
+        [merchant_trade_no, orderId]
       );
-  
+
       await connection.commit();
     } catch (err) {
       await connection.rollback();
     } finally {
       connection.release();
     }
+
+    const orderData = order[0]
+
+    // SDK 參數設定
+    const MerchantTradeDate = new Date().toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'UTC',
+    });
+    let base_param = {
+      MerchantTradeNo: merchant_trade_no, //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
+      MerchantTradeDate,
+      TotalAmount: `${parseFloat(orderData.total_price)}`,
+      TradeDesc: '測試交易描述',
+      ItemName: '測試商品等',
+      ReturnURL: `${HOST}/ecpayment/return`,
+      ClientBackURL: `${CUSTOMER_SYSTEM_URL}/User/Order/Detail/${orderData.order_id}`,
+    };
+    const create = new ecpay_payment(options);
+
+    const html = create.payment_client.aio_check_out_all(base_param);
+
+    res.render('index', {
+      title: '訂單處理中',
+      html,
+    });
   } else {
-    return res.status(400).json({ message: "查無購物車資料" });
+    return res.status(400).json({ message: "查無訂單資料" });
   }
-
-  const cartData = await getCartData(cart_id)
-
-  // SDK 參數設定
-  const MerchantTradeDate = new Date().toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZone: 'UTC',
-  });
-  let base_param = {
-    MerchantTradeNo: merchant_trade_no, //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
-    MerchantTradeDate,
-    TotalAmount: `${cartData.total_price}`,
-    TradeDesc: '測試交易描述',
-    ItemName: '測試商品等',
-    ReturnURL: `${HOST}/ecpayment/return`,
-    ClientBackURL: `${HOST}/ecpayment/clientReturn`,
-  };
-  const create = new ecpay_payment(options);
-
-  const html = create.payment_client.aio_check_out_all(base_param);
-
-  res.render('index', {
-    title: '訂單處理中',
-    html,
-  });
 });
 
 function generateTradeNo(length = 20) {
@@ -124,6 +122,7 @@ router.post('/return', async (req, res) => {
   const { CheckMacValue } = req.body;
   const data = { ...req.body };
   delete data.CheckMacValue; // 此段不驗證
+  console.log(data)
 
   const create = new ecpay_payment(options);
   const checkValue = create.payment_client.helper.gen_chk_mac_value(data);

@@ -47,7 +47,7 @@ router.get('/', verifyJWT, async (req, res) => {
   // 取得訂單編號
   const orderId = req.query.orderId
 
-  // 檢查是否已存在購物車
+  // 取出該訂單資料
   const [order] = await pool.query(`SELECT * FROM \`order\` WHERE order_Id = ? AND user_id = ?`, [orderId, user_id]);
   if (order.length > 0) {
     let merchant_trade_no = generateTradeNo(20);
@@ -123,6 +123,29 @@ router.post('/return', async (req, res) => {
   const data = { ...req.body };
   delete data.CheckMacValue; // 此段不驗證
   console.log(data)
+
+  if(data.RtnCode === '1') {
+    // 取出該訂單資料
+    const [orders] = await pool.query(`SELECT * FROM \`order\` WHERE merchant_trade_no = ?`, [data.MerchantTradeNo]);
+    if(orders.length > 0) {
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+  
+        // 更新 merchant_trade_no
+        await connection.query(
+          `UPDATE \`order\` SET order_status = ? WHERE merchant_trade_no = ?`,
+          ['已付款', data.MerchantTradeNo]
+        );
+  
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+      } finally {
+        connection.release();
+      }
+    }
+  }
 
   const create = new ecpay_payment(options);
   const checkValue = create.payment_client.helper.gen_chk_mac_value(data);

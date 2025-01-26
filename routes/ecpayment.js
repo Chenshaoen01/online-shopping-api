@@ -122,9 +122,11 @@ router.post('/return', async (req, res) => {
   const { CheckMacValue } = req.body;
   const data = { ...req.body };
   delete data.CheckMacValue; // 此段不驗證
-  console.log(data)
 
-  if(data.RtnCode === '1') {
+  const create = new ecpay_payment(options);
+  const checkValue = create.payment_client.helper.gen_chk_mac_value(data);
+
+  if(data.RtnCode === '1' && CheckMacValue === checkValue) {
     // 取出該訂單資料
     const [orders] = await pool.query(`SELECT * FROM \`order\` WHERE merchant_trade_no = ?`, [data.MerchantTradeNo]);
     if(orders.length > 0) {
@@ -146,16 +148,6 @@ router.post('/return', async (req, res) => {
       }
     }
   }
-
-  const create = new ecpay_payment(options);
-  const checkValue = create.payment_client.helper.gen_chk_mac_value(data);
-
-  console.log(
-    '確認交易正確性：',
-    CheckMacValue === checkValue,
-    CheckMacValue,
-    checkValue,
-  );
 
   // 交易成功後，需要回傳 1|OK 給綠界
   res.send('1|OK');

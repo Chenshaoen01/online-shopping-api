@@ -2,7 +2,7 @@ const pool = require('@helpers/connection');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-async function createOrder(cart_id = "", user_id="", store_id="", store_name="", csv_type="") {
+async function createOrder(cart_id = "", user_id="", store_id="", store_name="", csv_type="", receiverName="", receiverPhone="") {
   const order_id = uuidv4();
   const connection = await pool.getConnection();
   try {
@@ -44,12 +44,11 @@ async function createOrder(cart_id = "", user_id="", store_id="", store_name="",
       0
     );
 
-    console.log(order_id, user_id, total_price, store_id, store_name, csv_type)
     // 插入 order 記錄
     await connection.query(
-      `INSERT INTO \`order\` (order_id, user_id, total_price, order_status, store_id, store_name, csv_type) 
-       VALUES (?, ?, ?, '未付款', ?, ?, ?)`,
-      [order_id, user_id, total_price, store_id, store_name, csv_type]);
+      `INSERT INTO \`order\` (order_id, user_id, total_price, order_status, store_id, store_name, csv_type, receiver_name, receiver_phone) 
+       VALUES (?, ?, ?, '未付款', ?, ?, ?, ?, ?)`,
+      [order_id, user_id, total_price, store_id, store_name, csv_type, receiverName, receiverPhone]);
 
     // 插入 order_item 記錄
     for (const item of cartItems) {

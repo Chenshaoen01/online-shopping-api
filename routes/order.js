@@ -32,11 +32,11 @@ router.post('/', verifyJWT, async (req, res) => {
     // 如果購物車已存在，取得購物車ID
     cart_id = cart[0].cart_id;
 
-    const { storeId, storeName, csvType } = req.body
+    const { storeId, storeName, csvType, receiverName, receiverPhone } = req.body
   
     try {
       const user_id = decoded.user_id;
-      const orderCreateResult = await createOrder(cart_id, user_id, storeId, storeName, csvType);
+      const orderCreateResult = await createOrder(cart_id, user_id, storeId, storeName, csvType, receiverName, receiverPhone);
       if(orderCreateResult.statusCode === 200) {
         res.status(201).json({ message: '訂單已成功創建', orderId: orderCreateResult.orderId });
       } else {
@@ -51,8 +51,11 @@ router.post('/', verifyJWT, async (req, res) => {
 });
 
 // 依照頁數查詢訂單列表
-router.get('/',verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
+router.get('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
+  const isFinishedShown = req.query.isFinishedShown === '1' || false;
+  console.log(isFinishedShown)
+
   const limit = 10;
   const offset = (page - 1) * limit;
 
@@ -77,34 +80,30 @@ router.get('/',verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
     const pageList = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 
     // 查詢訂單資料，使用分頁
-    const [orders] = await pool.query(
-      `SELECT o.order_id, o.user_id, o.total_price, o.order_status, o.created_at, 
-              u.user_name 
-       FROM \`order\` o
-       JOIN user u ON o.user_id = u.user_id
-       ORDER BY o.created_at DESC 
-       LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
-
-    // 查詢每筆訂單的商品明細
-    const ordersWithItems = [];
-    for (const order of orders) {
-      const [orderItems] = await pool.query(
-        `SELECT oi.order_item_id, oi.quantity, oi.model_price, 
-                p.product_name, m.model_name
-         FROM order_item oi
-         JOIN product p ON oi.product_name = p.product_id
-         JOIN model m ON oi.model_name = m.model_id
-         WHERE oi.order_id = ?`,
-        [order.order_id]
-      );
-
-      ordersWithItems.push({ ...order, items: orderItems });
+    let orders = []
+    if(isFinishedShown) {
+      orders = await pool.query(
+        `SELECT o.order_id, o.user_id, o.total_price, o.order_status, o.created_at, u.user_name 
+         FROM \`order\` o
+         JOIN user u ON o.user_id = u.user_id
+         ORDER BY o.created_at DESC 
+         LIMIT ? OFFSET ?`,
+        [limit, offset]
+      );  
+    } else {
+      orders = await pool.query(
+        `SELECT o.order_id, o.user_id, o.total_price, o.order_status, o.created_at, u.user_name 
+         FROM \`order\` o
+         JOIN user u ON o.user_id = u.user_id
+         WHERE o.order_status != ?
+         ORDER BY o.created_at DESC 
+         LIMIT ? OFFSET ?`,
+        ['已完成', limit, offset]
+      );  
     }
 
     res.json({
-      dataList: ordersWithItems,
+      dataList: orders.length > 0? orders[0] : [],
       lastPage,
       pageList
     });
@@ -196,46 +195,6 @@ router.put('/orderStatus', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, 
     res.json({ message: '訂單狀態調整成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-// 刪除訂單及相關商品明細
-router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
-  const { order_ids } = req.body;
-
-  // 驗證輸入
-  if (!Array.isArray(order_ids) || order_ids.length === 0) {
-    return res.status(400).json({ message: '須指定欲刪除的訂單' });
-  }
-
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    // 刪除 order_item 記錄
-    await connection.query(
-      `DELETE FROM order_item WHERE order_id IN (?)`,
-      [order_ids]
-    );
-
-    // 刪除 order 記錄
-    const [result] = await connection.query(
-      `DELETE FROM \`order\` WHERE order_id IN (?)`,
-      [order_ids]
-    );
-
-    if (result.affectedRows === 0) {
-      await connection.rollback();
-      return res.status(404).json({ message: '找不到對應的訂單' });
-    }
-
-    await connection.commit();
-    res.json({ message: '訂單刪除成功' });
-  } catch (err) {
-    await connection.rollback();
-    res.status(500).json({ error: err.message });
-  } finally {
-    connection.release();
   }
 });
 

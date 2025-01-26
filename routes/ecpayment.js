@@ -15,7 +15,7 @@ const ecpay_payment = require('ecpay_aio_nodejs');
 
 // SDK 初始化
 const options = {
-  OperationMode: 'Test', //Test or Production
+  OperationMode: 'Test',
   MercProfile: {
     MerchantID: MERCHANTID,
     HashKey: HASHKEY,
@@ -23,11 +23,11 @@ const options = {
   },
   IgnorePayment: [
     //  "Credit",
-    //  "WebATM",
-    //  "ATM",
-    //  "CVS",
-    //  "BARCODE",
-    //  "AndroidPay"
+     "WebATM",
+     "ATM",
+     "CVS",
+     "BARCODE",
+     "AndroidPay"
   ],
   IsProjectContractor: false,
 };
@@ -48,7 +48,7 @@ router.get('/', verifyJWT, async (req, res) => {
   const orderId = req.query.orderId
 
   // 取出該訂單資料
-  const [order] = await pool.query(`SELECT * FROM \`order\` WHERE order_Id = ? AND user_id = ?`, [orderId, user_id]);
+  const [order] = await pool.query(`SELECT * FROM \`order\` WHERE order_Id = ? AND user_id = ? AND order_status = ?`, [orderId, user_id, '未付款']);
   if (order.length > 0) {
     let merchant_trade_no = generateTradeNo(20);
     const connection = await pool.getConnection();

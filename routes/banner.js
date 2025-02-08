@@ -87,7 +87,7 @@ router.get('/:banner_id', async (req, res) => {
 });
 
 // BannerImg 新增
-router.post('/bannerImg', verifyJWT, verifyAdmin, verifyCsrfToken, upload.single('bannerImg'), async (req, res) => {
+router.post('/bannerImg', upload.single('bannerImg'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: '未提供檔案' });
   }
@@ -116,15 +116,15 @@ router.post('/bannerImg', verifyJWT, verifyAdmin, verifyCsrfToken, upload.single
 });
 
 // Banner 新增
-router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
+router.post('/', async (req, res) => {
   const banner_id = uuidv4();
-  const { new_banner_img, banner_link, banner_sort } = req.body;
+  const { new_banner_img, banner_link, banner_sort, new_mobile_banner_img } = req.body;
 
   try {
     await pool.query(
-      `INSERT INTO banner (banner_id, banner_img, banner_link, banner_sort)
-      VALUES (?, ?, ?, ?);`,
-      [banner_id, new_banner_img, banner_link, banner_sort]
+      `INSERT INTO banner (banner_id, banner_img, mobile_banner_img, banner_link, banner_sort)
+      VALUES (?, ?, ?, ?, ?);`,
+      [banner_id, new_banner_img, new_mobile_banner_img, banner_link, banner_sort]
     );
 
     res.status(201).json({ message: '首頁輪播資料新增成功' });
@@ -134,9 +134,9 @@ router.post('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
 });
 
 // Banner 修改
-router.put('/:banner_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
+router.put('/:banner_id', async (req, res) => {
   const { banner_id } = req.params;
-  const { banner_img, new_banner_img, banner_link, banner_sort } = req.body;
+  const { banner_img, new_banner_img, mobile_banner_img, new_mobile_banner_img, banner_link, banner_sort } = req.body;
 
   try {
     const isNewImageExist = new_banner_img !== null && new_banner_img !== '' && new_banner_img !== undefined;
@@ -152,9 +152,23 @@ router.put('/:banner_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, r
         .promise();
     }
 
+    const isNewMobileImageExist = new_mobile_banner_img !== null && new_mobile_banner_img !== '' && new_mobile_banner_img !== undefined;
+    const updateMobileImg = isNewMobileImageExist ? new_mobile_banner_img : mobile_banner_img;
+
+    if (isNewMobileImageExist) {
+      // 刪除 Cloudflare R2 上的舊圖片
+      await s3
+        .deleteObject({
+          Bucket: BUCKET_NAME,
+          Key: mobile_banner_img,
+        })
+        .promise();
+    }
+
+
     await pool.query(
-      `UPDATE banner SET banner_img = ?, banner_link = ?, banner_sort = ? WHERE banner_id = ?;`,
-      [updateImg, banner_link, banner_sort, banner_id]
+      `UPDATE banner SET banner_img = ?, mobile_banner_img = ?, banner_link = ?, banner_sort = ? WHERE banner_id = ?;`,
+      [updateImg, updateMobileImg, banner_link, banner_sort, banner_id]
     );
 
     res.json({ message: '首頁輪播資料編輯成功' });
@@ -165,7 +179,7 @@ router.put('/:banner_id', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, r
 });
 
 // Banner 刪除（支援一次刪除多筆）
-router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => {
+router.delete('/', async (req, res) => {
   const { banner_ids } = req.body;
 
   if (!Array.isArray(banner_ids) || banner_ids.length === 0) {
@@ -174,7 +188,7 @@ router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => 
 
   try {
     const [rows] = await pool.query(
-      `SELECT banner_img FROM banner WHERE banner_id IN (?);`,
+      `SELECT banner_img, mobile_banner_img FROM banner WHERE banner_id IN (?);`,
       [banner_ids]
     );
 
@@ -189,6 +203,17 @@ router.delete('/', verifyJWT, verifyAdmin, verifyCsrfToken, async (req, res) => 
           .deleteObject({
             Bucket: BUCKET_NAME,
             Key: row.banner_img,
+          })
+          .promise()
+      )
+    );
+
+    await Promise.all(
+      rows.map((row) =>
+        s3
+          .deleteObject({
+            Bucket: BUCKET_NAME,
+            Key: row.mobile_banner_img,
           })
           .promise()
       )
